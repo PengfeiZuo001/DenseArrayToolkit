@@ -51,7 +51,7 @@ function config = loadConfig()
     config.profile_length  = 4;  % profile length (km or other unit)
 
     %% 6. Global parameters
-    config.dataFolder      = './data/event_waveforms_QBII'; % data folder path
+    config.dataFolder      = './data/event_waveforms_QBI'; % data folder path
     config.outputFolder    = './results';                 % output folder
     config.saveResults     = true;                        % whether to save results
     config.visualizeResults= true;                        % whether to visualize results
