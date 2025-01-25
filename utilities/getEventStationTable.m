@@ -1,8 +1,10 @@
 function EventStationTable = getEventStationTable(DataStruct)
 
     % 1. 获取所有事件与台站列表
-    eventList   = getEvents(DataStruct);    % cell array of event IDs
-    stationList = getStations(DataStruct);  % cell array of station names
+    event = getEvents(DataStruct);    % cell array of event IDs
+    eventList = {event.evid};
+    station = getStations(DataStruct);  % cell array of station names
+    stationList = {station.sta};
     nevt = length(eventList);
     nsta = length(stationList);
 

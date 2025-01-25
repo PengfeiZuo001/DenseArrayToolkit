@@ -1,0 +1,12 @@
+function eventList = getEvents(DataStruct)
+eventList_all = {};
+for n = 1:length(DataStruct)
+    eventList_all(n).evid = DataStruct(n).EventInfo.evid;
+    eventList_all(n).evlo = DataStruct(n).EventInfo.evlo;
+    eventList_all(n).evla = DataStruct(n).EventInfo.evla;
+
+end
+[evid,index] = unique({eventList_all.evid});
+evlo
+
+
