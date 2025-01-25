@@ -22,13 +22,13 @@
 
 % The following two lines will work if you put these codes
 % directly into your matlab userpath.
-tmp_userpath = char(userpath);
-processRFmatlab_root = fullfile( tmp_userpath(1:end-1), ...
+tmp_userpath = char(pwd);
+processRFmatlab_root = fullfile( tmp_userpath, ...
                                 'processRFmatlab-master');
 %
 % Otherwise you can hard code it. For example, comment out the above
 % two lines and add
-processRFmatlab_root='/Users/yunfeng/MATLAB/processRFmatlab-master';
+% processRFmatlab_root='/Users/yunfeng/MATLAB/processRFmatlab-master';
 % on linux, or for windows
 % >> processRFmatlab_root='C:\directory\where/you\saved\processRFmatlab'
 %
@@ -38,7 +38,7 @@ processRFmatlab_root='/Users/yunfeng/MATLAB/processRFmatlab-master';
 
 
 % Check the directory exists
-if ~exist(processRFmatlab_root, 'dir'),
+if ~exist(processRFmatlab_root, 'dir')
     error('You need to edit this script to point to your directory')
     return;
 end
