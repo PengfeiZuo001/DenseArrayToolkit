@@ -59,12 +59,28 @@ EventStationTable = getEventStationTable(DataStruct);
 % 根据数据和配置文件中的测线长度信息，获取成像剖面的中心和方向等参数
 profileStruct = getImagingProfile(DataStruct, config.profile_length);
 
-% 创建或获取速度模型，在后续偏移成像中使用
-velocityModel = getVelocityModel();
-
 %% 5. 偏移成像
-%   以下注释掉的是其他可能的成像方案示例，可根据实际需要进行调用
-%   ccpResult = ccp(DataStruct, velocityModel, CCPParam);
+DataStruct = deconv(DataStruct, DeconvParam);
+
+ModelParam.LatMin = min(stla)-0.2;
+ModelParam.LatMax = max(stla)+0.2;
+ModelParam.LonMin = min(stlo)-0.2;
+ModelParam.LonMax = max(stlo)+0.2;
+ModelParam.npts = 5;
+
+ModelType = '3D';
+velocityModel = getVelocityModel(ModelType,ModelParam);
+
+CCPParam.LatMin = min(stla)-0.2;
+CCPParam.LatMax = max(stla)+0.2;
+CCPParam.LonMin = min(stlo)-0.2;
+CCPParam.LonMax = max(stlo)+0.2;
+CCPParam.BinSpacing = 10;
+CCPParam.BinSize = 15;
+
+CCPParam.StationCode = {stationList.sta}';
+
+ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam);
 %   hkResult  = hk(DataStruct, HKParam);
 
 % 准备保存偏移结果的矩阵，这里将所有事件的成像结果进行累积存储
@@ -72,6 +88,8 @@ dmig   = [];  % 存储常规偏移结果
 dmigls = [];  % 存储最小二乘偏移结果
 nMigratedEvents  = 1;   % 用于计数成功完成成像的事件数
 
+ModelType = '2D';
+velocityModel = getVelocityModel(ModelType);
 % 遍历所有符合筛选条件的事件
 for iEvent = 1:length(eventid)
     evid = eventid{iEvent}; 
