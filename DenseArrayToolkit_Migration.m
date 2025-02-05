@@ -77,10 +77,13 @@ CCPParam.LonMin = min(stlo)-0.2;
 CCPParam.LonMax = max(stlo)+0.2;
 CCPParam.BinSpacing = 10;
 CCPParam.BinSize = 15;
-
 CCPParam.StationCode = {stationList.sta}';
 
 ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam);
+
+plotCCPResults(ccpResult,slon,slat)
+
+
 %   hkResult  = hk(DataStruct, HKParam);
 
 % 准备保存偏移结果的矩阵，这里将所有事件的成像结果进行累积存储

@@ -37,7 +37,6 @@ function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
             time{ii} = CommonStationGather(ii).RF.ittime;
             backaz(1,ii) = CommonStationGather(ii).TravelInfo.baz;
             p(1,ii) = CommonStationGather(ii).TravelInfo.rayParam;
-
         end
         nseis=length(seis);
         lat = CommonStationGather(1).StationInfo.stla;
@@ -211,7 +210,10 @@ function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
             V(k,:) = [lon(i) lat(i) dep0(j) rf1(j,i)];
         end
     end
-    ccpResult = scatteredInterpolant(V(:,1),V(:,2),V(:,3),V(:,4));
+    F = scatteredInterpolant(V(:,1),V(:,2),V(:,3),V(:,4));
 
+    ccpResult.rayMatrix = RayMatrix_all;
+    ccpResult.cp = cp;
+    ccpResult.rf = F;
 
 end
