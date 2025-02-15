@@ -1,4 +1,4 @@
-function plotStations(DataStruct, demFile)
+function plotStations(DataStruct, demFile, external_station_file)
 % PLOTSTATIONS - Using MATLAB Mapping Toolbox to plot station locations
 %                on a background DEM (digital elevation model).
 %
@@ -18,6 +18,9 @@ function plotStations(DataStruct, demFile)
 %% 1. Load DEM data
 if nargin < 2 || isempty(demFile)
     demFile = 'Qaidam_DEM.mat';  % 你可以把默认的 DEM 文件名写在这里
+end
+if nargin < 3
+    external_station_file = [];
 end
 S = load(demFile);
 demLat = S.demLat;  % [M x 1]
@@ -97,4 +100,76 @@ framem('on');   % 绘制地图框
 mlabel on;      % 标注纬线
 plabel on;      % 标注经线
 
+%% 8. 读取并绘制断层
+fault_files = dir('./visualization/faults/*txt');
+for k = 1:length(fault_files)
+    faults = read_faults_gmt(fullfile(fault_files(k).folder, fault_files(k).name));
+    for l = 1:length(faults)
+        fault = faults{l};
+        % fault(:,1) -> lon, fault(:,2) -> lat
+        geoshow(fault(:,2), fault(:,1),'DisplayType','line','LineWidth',2,'Color','k');
+    end
+end
+
+%% 9. 其他台站位置
+% 读取文件
+% 读取文件
+if ~isempty(external_station_file)
+    fid = fopen(external_station_file, 'r');
+
+
+% 初始化变量
+networks = {};
+latitudes = [];
+longitudes = [];
+stations = {};
+
+% 读取数据
+while ~feof(fid)
+    line = fgetl(fid); % 读取一行
+    if isempty(line) || line(1) == '#' % 跳过空行和注释行
+        continue;
+    end
+    data = strsplit(line, '|'); % 按 | 分割数据
+    networks = [networks; data{1}]; % 提取 Network
+    latitudes = [latitudes; str2double(data{3})]; % 提取纬度
+    longitudes = [longitudes; str2double(data{4})]; % 提取经度
+    stations = [stations; data{2}]; % 提取台站名称
+end
+
+fclose(fid);
+
+% 获取唯一的 Network 列表
+unique_networks = unique(networks);
+num_networks = length(unique_networks);
+
+% 定义颜色和符号
+colors = lines(num_networks); % 使用 lines 颜色映射
+symbol = '^'; % 三角形符号
+
+% 绘制地图
+load coastlines;    % 加载海岸线数据
+plotm(coastlat, coastlon, 'k');  % 绘制海岸线
+
+% 绘制国家边界
+countries = shaperead('landareas.shp', 'UseGeoCoords', true);
+geoshow(countries, 'EdgeColor', 'k', 'FaceColor', 'none'); % 绘制国家边界
+
+% 为每个 Network 绘制站点
+for i = 1:num_networks
+    network = unique_networks{i};
+    idx = find(strcmp(networks, network)); % 找到当前 Network 的索引
+    scatterm(latitudes(idx), longitudes(idx), 100, colors(i, :), symbol, 'filled','MarkerEdgeColor','k'); % 绘制站点
+    % 标注台网和台站名称
+    for j = 1:length(stations(idx))
+        textm(latitudes(idx(j)), longitudes(idx(j)), ...
+            [network, ' ', stations{idx(j)}], ...
+            'Color', colors(i, :), 'FontSize', 8, ...
+            'VerticalAlignment', 'bottom', ...
+            'HorizontalAlignment', 'left');
+    end
+end
+
+hold off;
+end
 end

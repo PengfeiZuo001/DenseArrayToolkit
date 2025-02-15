@@ -1,8 +1,8 @@
-function plotCommonEventGather(DataStruct, EventID, plot_type)
-% PLOTSINGLEEVENTRFS - Plot receiver functions for all stations of a single event
+function plotCommonEventGather(DataStruct, EventID, axis_type, plot_type, UIAxes)
+% PLOTSINGLEEVENTRFS - Plot receiver functions for all stations of a single event or all events
 %
 % Usage:
-%   plotSingleEventRFs(DataStruct, eventID, plot_type)
+%   plotSingleEventRFs(DataStruct, eventID, plot_type, UIAxes)
 %
 % Inputs:
 %   DataStruct : struct array, each element has fields:
@@ -10,24 +10,40 @@ function plotCommonEventGather(DataStruct, EventID, plot_type)
 %       .RF.ittime (time axis)    : e.g. [Nt x 1]
 %       .RF.itr (receiver func)   : e.g. [Nt x 1]
 %       .TravelInfo.distDeg       : distance in degrees
-%   eventID    : the event ID you want to plot
-%   plot_type  : 'distance' (use distDeg as X-axis) or 'trace' (use trace index)
+%   eventID    : (optional) the event ID you want to plot. If not provided, plot all events.
+%   axis_type  : 'distance' (use distDeg as X-axis) or 'trace' (use trace index)
+%   plot_type  : 'wigb' to use wiggle plot or 'imagesc' to use image plot
+%   UIAxes     : (optional) Axes handle to plot in. If not provided, a new figure is created.
 %
 % Example:
-%   plotSingleEventRFs(DataStruct, 'EV12345678', 'distance');
+%   plotSingleEventRFs(DataStruct, 'EV12345678', 'distance', UIAxes);
+%   plotSingleEventRFs(DataStruct, [], 'trace'); % Plot all events
+
     %% 1) 输入检查
     if nargin < 3
-        warning('plotSingleEventRFs requires 3 inputs: DataStruct, eventID, plot_type. Use trace index as default.');
-        plot_type = 'trace';
+        warning('plotSingleEventRFs requires at least 3 inputs: DataStruct, eventID, plot_type. Use trace index as default.');
+        axis_type = 'trace';
+        plot_type = 'imagesc';
     end
-    %% 2) 收集满足该 eventID 的 RF 波形
+
+    if nargin < 2 || isempty(EventID)
+        % 如果没有提供 EventID，则绘制所有波形
+        EventID = 'all';
+    end
+
+    %% 2) 收集满足条件的 RF 波形
     rfmatrix = [];
     distArr  = [];
     foundIndices = [];
 
-    % 下面是完整匹配:
-    isMatch = arrayfun(@(x) strcmp(x.EventInfo.evid, EventID), DataStruct);
-    foundIndices = find(isMatch);
+    if strcmp(EventID, 'all')
+        % 如果 EventID 是 'all'，则收集所有波形
+        foundIndices = 1:numel(DataStruct);
+    else
+        % 否则，收集匹配指定 EventID 的波形
+        isMatch = arrayfun(@(x) strcmp(x.EventInfo.evid, EventID), DataStruct);
+        foundIndices = find(isMatch);
+    end
 
     if isempty(foundIndices)
         warning('No data found for eventID = %s', EventID);
@@ -53,8 +69,8 @@ function plotCommonEventGather(DataStruct, EventID, plot_type)
 
     % 若最终 rfmatrix 为空, 说明虽然找到匹配事件, 但没有有效RF波形
     if isempty(rfmatrix)
-        warning('Found %d records for eventID="%s", but none has valid RF.itr data.', ...
-                 numel(foundIndices), EventID);
+        warning('Found %d records, but none has valid RF.itr data.', ...
+                 numel(foundIndices));
         return;
     end
 
@@ -70,22 +86,49 @@ function plotCommonEventGather(DataStruct, EventID, plot_type)
     end
 
     [nt, nx] = size(rfmatrix);
-
+    
     %% 4) 作图
-    figure('Name',sprintf('RF for %s',EventID),'Color','white',...
-           'Position',[200 200 1200 700]);
-
-    switch plot_type
-        case 'distance'
-            wigb(rfmatrix, 2, distArr, t);
-            xlabel('Distance (deg)');
-        case 'trace'
-            wigb(rfmatrix, 2, 1:nx, t);
-            xlabel('Trace index');
+    if nargin < 5 || isempty(UIAxes)
+        % 如果没有提供 UIAxes，则新建一个 figure
+        figure('Name',sprintf('RF for %s',EventID),'Color','white',...
+               'Position',[200 200 1200 700]);
+        ax = gca;
+    else
+        % 如果提供了 UIAxes，则在该 Axes 中画图
+        ax = UIAxes;
+        axes(ax); % 显式设置当前 Axes
+        cla(ax);  % 清空现有内容
+        hold(ax, 'on'); % 确保后续绘图在同一 Axes
     end
 
-    ylim([t(1), 20]);    % 只显示 0~20s 区间，可按需调整
-    ylabel('Time (sec)');
-    set(gca, 'FontSize',14, 'LineWidth',1, 'XMinorTick','on');
-    title(sprintf('Event %s : showing %d station(s)', EventID, size(rfmatrix,2)));
+    switch axis_type
+        case 'distance'
+            xrange = distArr;
+            xlabelstr = 'Distance (deg)';
+        case 'trace'
+            xrange = 1:nx;
+            xlabelstr = 'Trace index';  
+    end
+    switch plot_type
+        case 'wigb'
+            wigb(rfmatrix, 2, xrange, t);
+            xlabel(ax, xlabelstr);
+            xlim(ax,[min(xrange) max(xrange)])
+        case 'imagesc'
+            imagesc(xrange,t,rfmatrix,'Parent', ax);
+            colormap(ax,seismic(1))
+            caxis(ax,[-0.1 0.1])
+            xlabel(ax, xlabelstr);
+            xlim(ax,[min(xrange) max(xrange)])
+    end
+    ylim(ax, [t(1), 20]);    % 只显示 0~20s 区间，可按需调整
+    set(ax,'YDir','reverse')
+    ylabel(ax, 'Time (sec)');
+    set(ax, 'FontSize',14, 'LineWidth',1, 'XMinorTick','on');
+
+    if strcmp(EventID, 'all')
+        title(ax, sprintf('All Events : showing %d station(s)', size(rfmatrix,2)));
+    else
+        title(ax, sprintf('Event %s : showing %d station(s)', EventID, size(rfmatrix,2)));
+    end
 end

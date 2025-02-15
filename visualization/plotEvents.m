@@ -46,7 +46,6 @@ lons = lons(idx);
 stationLat = DataStruct(1).StationInfo.stla;
 stationLon = DataStruct(1).StationInfo.stlo;
 
-
 % -------------------------------------------------------------------------
 %% 3. Compute the great-circle distance from the station to each event
 %   distance(lat1, lon1, lat2, lon2, spheroid)
@@ -75,7 +74,7 @@ evidSel = evid(idxRange);
 %   - 'eqdazim': Azimuthal Equidistant
 %   Here we choose Lambert to preserve area, or eqdazim to preserve distance.
 
-figure('Position',[10 10 800 800],'Name','Events_30to90deg','Color','w');
+figure('Position',[10 10 800 800],'Name','Teleseismic Events','Color','w');
 
 % Create map axes with Lambert Azimuthal (good for polar or local region).
 % 'origin' sets the center of projection as [Lat, Lon]
@@ -84,12 +83,20 @@ figure('Position',[10 10 800 800],'Name','Events_30to90deg','Color','w');
 % axesm('MapProjection','lambertstd','MapLatLimit',[0 90],...
 %       'Origin',[stationLat stationLon 0]);
 
+
 % 若想用等距方位投影:
-axesm('eqdazim','MapLatLimit',[0 90], 'Origin',[stationLat stationLon 0]);
+axesm('eqdazim', 'Origin',[stationLat stationLon 0]);
 
 % MapLatLimit = [0 90] 表示半径90度范围(从中心到 90°)。 
 % 你也可以写 [30 90] 如果只想显示内环-外环之间, 
 % 但会导致图上不显示 <30° 区域. 看需求决定.
+
+% 检查当前坐标轴是否是地图坐标轴
+if isempty(gcm)
+    error('Current axes is not a map axes.');
+end
+
+hold on;
 
 % 打开格网、边框、标签
 gridm('on');   % 绘制经纬网
@@ -104,7 +111,7 @@ title(sprintf('Events within [30°, 90°] Range'), ...
 %   You can use plotm(stationLat, stationLon, markerSpec) or geoshow.
 plotm(stationLat, stationLon, '^','MarkerSize',12,'MarkerFaceColor','b');
 textm(stationLat, stationLon, '  Station','FontSize',10,'Color','b');
-
+pause(0.05)
 % -------------------------------------------------------------------------
 %% 7. Plot the selected events
 %   We can use scatterm or plotm

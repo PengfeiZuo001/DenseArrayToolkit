@@ -11,6 +11,7 @@ station = struct( ...
 
 staname = cellfun(@(stationinfo) stationinfo.sta, {DataStruct.StationInfo}, 'UniformOutput', false);
 [staname,idx,~] = unique(staname);
+netname = cellfun(@(stationinfo) stationinfo.network, {DataStruct.StationInfo}, 'UniformOutput', false);
 slat = cellfun(@(stationinfo) stationinfo.stla, {DataStruct.StationInfo}, 'UniformOutput', false);
 slon = cellfun(@(stationinfo) stationinfo.stlo, {DataStruct.StationInfo}, 'UniformOutput', false);
 sele = cellfun(@(stationinfo) stationinfo.stel, {DataStruct.StationInfo}, 'UniformOutput', false);
@@ -21,6 +22,7 @@ sele = cell2mat(sele)';
 slat = slat(idx);
 slon = slon(idx);
 sele = sele(idx);
+netname=netname(idx);
 
 stationList = []; 
 for n = 1:length(staname)
@@ -28,5 +30,6 @@ for n = 1:length(staname)
     station.stla = slat(n);
     station.stlo = slon(n);
     station.stel = sele(n);
+    station.network = netname{n};
     stationList = [stationList station];
 end

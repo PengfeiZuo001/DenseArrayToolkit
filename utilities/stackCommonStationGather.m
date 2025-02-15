@@ -39,8 +39,8 @@ function [seisout, depth0, mohoStruct] = stackCommonStationGather(DataStruct)
     % 5) 转换为矩阵并平滑
     ngrid_x = 8;
     ngrid_y = 4;
-    seisout = smoothSeismicData(seisCell,ngrid_x,ngrid_y);
-
+%     seisout = smoothSeismicData(seisCell,ngrid_x,ngrid_y);
+    seisout = cell2mat(seisCell);
     % 6) 提取深度轴
     depth0 = (0:dz:zmax)';  % 深度轴 [nz x 1]
 
@@ -111,6 +111,7 @@ function plotStackedSection(seisout, depth0, dmoho)
     ylim([0 100]);
     xlabel('Station index'); ylabel('Depth (km)');
     colorbar;
+    set(gca,'fontsize',14)
 end
 
 %% 子函数：提取莫霍面深度
@@ -141,7 +142,7 @@ function [Fmoho, idx] = interpolateMohoDepth(stlas, stlos, dmoho)
     % 剔除离群值
     mu = mean(dmoho, 'omitnan');
     sig = std(dmoho, 'omitnan');
-    idx = (dmoho >= mu - 1 * sig) & (dmoho <= mu + 1 * sig);
+    idx = (dmoho >= mu - 3 * sig) & (dmoho <= mu + 3 * sig);
 
     % 散点插值
     Fmoho = scatteredInterpolant(stlos(idx), stlas(idx), dmoho(idx), 'natural', 'none');
@@ -169,17 +170,18 @@ function plotMohoMap(stlas, stlos, dmoho, Fmoho)
     % 3. 设置地图投影，并指定经纬度范围
     %    axesm 中常见 'MapProjection' 选项有 'lambertstd', 'lambert', 'lambertconic'
     %    也可以考虑用 worldmap(latlim, lonlim) 来简化。
-    ax = axesm('lambertstd', ...
-               'MapLatLimit', latlim, ...
-               'MapLonLimit', lonlim, ...
-               'FLineWidth', 2, ...    % 地图框线宽
-               'FontSize', 12);       % 地图文字大小
+    ax = worldmap(latlim, lonlim);
+%     ax = axesm('lambertstd', ...
+%                'MapLatLimit', latlim, ...
+%                'MapLonLimit', lonlim, ...
+%                'FLineWidth', 2, ...    % 地图框线宽
+%                'FontSize', 12);       % 地图文字大小
     hold on;
 
     % 4. 绘制等值线 (contourfm/contourm)
     %    注意 contourfm 的输入顺序是 (lat, lon, Z)。因为 meshgrid 我们先生成 (lonGrid, latGrid)，
     %    所以这里要用 contourfm(latGrid, lonGrid, VI)。
-    contourfm(latGrid, lonGrid, VI, 10);  % 绘制 10 条等值线
+    contourfm(latGrid, lonGrid, VI, 15);  % 绘制 10 条等值线
     % 调整色表：先用 jet，再 flipud 翻转
     colormap(flipud(jet));
     colorbar('Location', 'eastoutside', 'FontSize', 12);
@@ -202,12 +204,17 @@ function plotMohoMap(stlas, stlos, dmoho, Fmoho)
     end
 
     % 7. 打开经纬度网格
-    setm(ax, 'Grid', 'on', ...         % 显示网格
+    setm(ax, 'FontSize', 14, ...
+             'Grid', 'on', ...         % 显示网格
              'Frame', 'on', ...        % 显示地图边框
              'MeridianLabel', 'on', ...% 标注经度
              'ParallelLabel', 'on', ...% 标注纬度
-             'MLineLocation', 2, ...   % 经度网格线间隔
-             'PLineLocation', 2);      % 纬度网格线间隔
+             'MLineLocation', 0.5, ...   % 经度网格线间隔
+             'PLineLocation', 0.5);      % 纬度网格线间隔
+
+    mlabel('on');  % 打开经度标注
+    plabel('on');  % 打开纬度标注    
+    gridm('GLineStyle', '--', 'GColor', 'k', 'GLineWidth', 0.5);  % 设置网格线样式
 
     title('Moho depth', 'FontSize', 16);
 
@@ -223,7 +230,7 @@ function plotMohoMap(stlas, stlos, dmoho, Fmoho)
         for l = 1:length(faults)
             fault = faults{l};
             % fault(:,1) -> lon, fault(:,2) -> lat
-            plotm(fault(:,2), fault(:,1), 'k', 'LineWidth', 1);
+            geoshow(fault(:,2), fault(:,1),'DisplayType','line','LineWidth',2,'Color','k');
         end
     end
 
