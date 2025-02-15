@@ -116,6 +116,7 @@ function DataStruct = read_SAC(dataFolder, maxFiles)
         tmpStruct.EventInfo.evla = hdrZ.event.evla;
         tmpStruct.EventInfo.evlo = hdrZ.event.evlo;
         tmpStruct.EventInfo.evdp = hdrZ.event.evdp;
+        tmpStruct.EventInfo.mag  = hdrZ.event.mag;
         tmpStruct.EventInfo.evid = datestr(tmpStruct.EventInfo.orginTimeUTC,'yyyymmddHHMMSS');
 
         %------ (E) File header info and initial processing history ------%
