@@ -91,6 +91,22 @@ lon1 = profileStruct.line_points(1, 1);
 lat1 = profileStruct.line_points(1, 2);
 lon2 = profileStruct.line_points(end, 1);
 lat2 = profileStruct.line_points(end, 2);
+direction = profileStruct.direction;
+evla = gather(1).EventInfo.evla;
+evlo = gather(1).EventInfo.evlo;
+
+% check distance to end points of the profile
+[dist1,az1] = distance(evla,evlo,lat1,lon1);
+[dist2,az2] = distance(evla,evlo,lat2,lon2);
+
+% incidence direction is 1 if wavefield is propagating towards the
+% positive direction of the profile and -1 otherwise
+if dist2 > dist1
+    incidence_direction = 1;
+else
+    incidence_direction = -1;
+end
+
 % If you need to compute great-circle distances, do so here,
 % or if it's a simple local coordinate system, you can handle that as well.
 
@@ -189,11 +205,11 @@ end
 % Gather average ray param & baz if needed
 raypAll = [gval.TravelInfo];
 avgRayp  = mean([raypAll.rayParam]) / 6371;  % e.g., if rayParam is in s/deg, or s/radius
-avgBaz   = mean([raypAll.baz]);
+% avgBaz   = mean([raypAll.baz]);
 vpSurf   = mean(vp(end,:));  % example: near bottom row or top row, depending
 
 % Create or define a source wavelet for LSM
-[src, pos, tshift] = rflsm_create_src(dt_samp, nt, avgRayp, avgBaz, vpSurf, param);
+[src, pos, tshift] = rflsm_create_src(dt_samp, nt, avgRayp, incidence_direction, vpSurf, param);
 % Scale source if needed
 src = src * max(mean(itrMat, 2));
 

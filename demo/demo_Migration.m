@@ -73,7 +73,7 @@ dmigls = [];  % 存储最小二乘偏移结果
 nMigratedEvents  = 1;   % 用于计数成功完成成像的事件数
 
 % 遍历所有符合筛选条件的事件
-for iEvent = 1:length(eventid)
+for iEvent = 5
     evid = eventid{iEvent}; 
     % 提取当前事件对应的地震记录子集（Common Event Gather）
     gather = getCommonEventGather(DataStruct, evid);
