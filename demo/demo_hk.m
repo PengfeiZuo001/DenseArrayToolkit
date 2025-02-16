@@ -45,4 +45,7 @@ DataStruct = deconv(DataStruct, DeconvParam);
 %   HKstacking()中以前三个台站为例进行计算。
 %   HK的计算结果保存在"./HK_bootstrap_tmp.txt",HK叠加结果图和接收函数图
 %   保存在'./figures/'中。
-HKresults=HKstacking(DataStruct);
+HKParam.H = 30:0.1:70;
+HKParam.K = 1.6:0.01:2.0;
+HKParam.W = [1/3 1/3 1/3];
+HKresults=HKstacking(DataStruct,HKParam);

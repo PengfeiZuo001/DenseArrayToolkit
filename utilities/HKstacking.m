@@ -1,4 +1,4 @@
-function [HKresults] = HKstacking(DataStruct)
+function [HKresults] = HKstacking(DataStruct,HKParam)
     % HKstacking - 利用接收函数Hk叠加计算台站地壳厚度和Vp/Vs(泊松比)
     %
     % 输入:
@@ -11,16 +11,17 @@ function [HKresults] = HKstacking(DataStruct)
     %   k - 台站下方地壳平均Vp/Vs
     %   kstd - 台站下方地壳平均Vp/Vs误差估计
     
-    R = 6371; % radius of the Earth
-    edep = 0;
-    Hall = 30:0.1:70;
-    % for figure plot
-    kappa = 1.6:0.01:2.0;
+    Hall = HKParam.H;
+    kappa = HKParam.K;
+    w1 = HKParam.W(1);
+    w2 = HKParam.W(2);
+    w3 = HKParam.W(3);
+
     % structure for HK results
     hkstat = struct();
     if_print_result = 1;
     if if_print_result == 1
-        fid1 = fopen('./HK_bootstrap_tmp.txt','a');
+        fid1 = fopen('./results/HK_bootstrap_tmp.txt','a');
         fprintf(fid1,'%-7s %-7s %-7s %-7s %-7s %-7s %-7s %-7s %-7s %-7s %-7s %-7s %-7s\n',...
             'Sta','Nrfs','Lat','Lon','Ele','H','Hstd','k','kstd','Hb_mean','Hb_std','kb_mean','kb_std');
     end
@@ -38,7 +39,7 @@ function [HKresults] = HKstacking(DataStruct)
     % 初始化结构体数组
     HKresults = struct('Sta', [],'Nrfs', [],'Lat', [],'Lon', [],'Ele', [],'H', [],'Hstd', [],'k', [],'kstd', []);
 
-    for n = 1:1%length(stationList)
+    for n = 1:length(stationList)
         gather = getCommonStationGather(DataStruct, stationList{n});
         if isempty(gather)
             continue;  % 跳过空数据
@@ -112,9 +113,6 @@ function [HKresults] = HKstacking(DataStruct)
             if H > dmoho % set the velcoity of layer above H to lower crust velocity
                 m(end-1,2:4) = m(end-2,2:4);
             end
-    
-            %% define the velocity model
-    %         m = obtain_jeff_model(H,lat,lon);
             %% define the ray code to trace the converted wave and multiples
             raycode_P = [H-eps*10000 1; 0+eps*10000 2];
             raycode_Pms = [H-eps*10000 2; 0+eps*10000 2];
@@ -198,12 +196,6 @@ function [HKresults] = HKstacking(DataStruct)
         end
         vp_ave = m0(end,1)/sum(diff(m0(:,1))./m0(1:end-1,2));
         %% stacking the results for 3 phases
-        %w1 = 0.6;
-        %w2 = 0.3;
-        %w3 = 0.1;
-        w1 = 1/3;
-        w2 = 1/3;
-        w3 = 1/3;
         Cn = [w1.*Cn1+w2.*Cn2+w3.*Cn3];
         Cn = Cn/max(Cn(:));
         Cn(Cn<0) = 0;
@@ -371,8 +363,6 @@ function [HKresults] = HKstacking(DataStruct)
         set(gca,'FontSize',20);
         figname = ['./figures/HK/',sta,'_waveform'];
         saveas(fig2,figname,'png');
-        % export_fig(fig4,figname,'-png');
-
         close all;
     end
     
