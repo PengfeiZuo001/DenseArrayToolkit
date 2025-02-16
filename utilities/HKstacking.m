@@ -38,7 +38,7 @@ function [HKresults] = HKstacking(DataStruct)
     % 初始化结构体数组
     HKresults = struct('Sta', [],'Nrfs', [],'Lat', [],'Lon', [],'Ele', [],'H', [],'Hstd', [],'k', [],'kstd', []);
 
-    for n = 1:2%length(stationList)
+    for n = 1:1%length(stationList)
         gather = getCommonStationGather(DataStruct, stationList{n});
         if isempty(gather)
             continue;  % 跳过空数据
@@ -59,6 +59,7 @@ function [HKresults] = HKstacking(DataStruct)
         end
         for nrf = 1:length(gather)
             rayp = [rayp gather(nrf).TravelInfo.rayParam];
+            rayp = rayp/6371;
         end
         for nrf = 1:length(gather)
             dist = [dist gather(nrf).TravelInfo.distDeg];
