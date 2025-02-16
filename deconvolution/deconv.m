@@ -1,195 +1,195 @@
 function DataStruct = deconv(DataStruct, param)
-% DECONV - Perform receiver function (RF) deconvolution, storing results in DataStruct
-%          and writing logs into DataStruct(n).ProcHistory
+% DECONV  Perform receiver function (RF) deconvolution on [T, R, Z] waveforms,
+%         storing the results in the DataStruct(n).RF field.
 %
 % Usage:
 %   DataStruct = deconv(DataStruct, param)
 %
 % Inputs:
 %   DataStruct : struct array with fields:
-%       .Waveforms.dataProcessed -> [Nt x 3] = [T, R, Z]  (from your preprocessing step)
-%       .TimeAxis.t_resample     -> time axis (same length as dataProcessed)
-%       .ProcHistory             -> cell array for logging (optional, but recommended)
-%   param : struct with fields (default values set below):
-%       .gauss       : Gauss parameter for decon (default=2.5)
-%       .waterlevel  : Water-level factor (default=0.01)
-%       .itmax       : Max iteration for iterative decon (default=100)
-%       .minderr     : Minimum error threshold for iterative decon (default=1e-5)
-%       .phaseshift  : Phase/time shift for decon (default=0)
-%       .verbose     : Verbose mode for internal decon functions (default=false)
-%       .radonfilter : if use filtered data with Radon transform  (default=false)
+%       Waveforms.dataProcessed -> [Nt x 3] = [T, R, Z] (from preprocessing)
+%       TimeAxis.t_resample     -> time axis matching dataProcessed
+%       ProcHistory             -> cell array for logging (recommended)
+%
+%   param : struct of deconvolution parameters.  Default fields include:
+%       .gauss       = 2.5     (Gaussian width)
+%       .waterlevel  = 0.01    (water-level)
+%       .itmax       = 100     (max iterations for iterative decon)
+%       .minderr     = 1e-5    (minimum residual threshold)
+%       .phaseshift  = 5       (shift in seconds before P-wave for alignment)
+%       .verbose     = false   (verbosity within decon routines)
+%       .radonfilter = false   (whether to use radon-filtered data)
 %
 % Output:
-%   DataStruct : the same struct array, but each valid record now has
-%       DataStruct(n).RF structure that stores:
-%         .wlr      - Water-level RF trace
-%         .wlrms    - RMS of water-level decon residual
-%         .nwl      - Additional output from makeRFwater_ammon
-%         .wltime   - Time axis for water-level RF
-%         .itr      - Iterative decon RF trace
-%         .itrms    - Final RMS (or last iteration error)
-%         .ittime   - Time axis for iterative RF
+%   DataStruct : the same input array but each valid record now contains
+%       DataStruct(n).RF with fields:
+%         .wlr      = Water-level RF trace
+%         .wlrms    = RMS of water-level decon residual
+%         .nwl      = Additional outputs from makeRFwater_ammon (optional)
+%         .wltime   = Time axis for water-level RF
+%         .itr      = Iterative decon RF trace
+%         .itrms    = Final RMS or iteration error
+%         .ittime   = Time axis for iterative decon
 %
-%   同时，为每条记录在 DataStruct(n).ProcHistory 中记录去卷积过程的日志。
+%   Logs are appended to DataStruct(n).ProcHistory for each step.
+%
+% Example:
+%   config.DeconvParam.gauss = 2.5;
+%   config.DeconvParam.itmax = 200;
+%   DataStruct = deconv(DataStruct, config.DeconvParam);
+%
+% Author: Yunfeng Chen (Refined by ChatGPT)
+% Date  :  Jan 9, 2025
 
-%% 1) Set default parameters
+%% 1) Set default parameters if missing
 if nargin < 2, param = struct(); end
-if ~isfield(param, 'gauss'),      param.gauss      = 2.5;   end
-if ~isfield(param, 'waterlevel'), param.waterlevel = 0.01;  end
-if ~isfield(param, 'itmax'),      param.itmax      = 100;   end
-if ~isfield(param, 'minderr'),    param.minderr    = 1e-5;  end
-if ~isfield(param, 'phaseshift'), param.phaseshift = 5;     end
-if ~isfield(param, 'verbose'),    param.verbose    = false; end
-if ~isfield(param, 'radonfilter'),param.radonfilter= false; end
+if ~isfield(param, 'gauss'),       param.gauss       = 2.5;   end
+if ~isfield(param, 'waterlevel'),  param.waterlevel  = 0.01;  end
+if ~isfield(param, 'itmax'),       param.itmax       = 100;   end
+if ~isfield(param, 'minderr'),     param.minderr     = 1e-5;  end
+if ~isfield(param, 'phaseshift'),  param.phaseshift  = 5;     end
+if ~isfield(param, 'verbose'),     param.verbose     = false; end
+if ~isfield(param, 'radonfilter'), param.radonfilter = false; end
 
-noresult = [];  % 用来记录无法完成反褶积的索引
-tic;
+% noresult will store indices of records that fail decon or produce no result
+noresult = [];
+
 disp('--- Start Deconvolution ---');
+tStart = tic;  % track elapsed time
 
-%% 2) Loop over each record in DataStruct
+%% 2) Loop over each trace/record in DataStruct
 for n = 1:length(DataStruct)
-    if mod(n,100) == 0
+    % Show progress every 100 traces (adjust as needed)
+    if mod(n, 100) == 0
         fprintf('Deconvolution on trace %d/%d\n', n, length(DataStruct));
     end
 
-    % 2.1 初始化/清空 RF 字段，避免遗留
-    DataStruct(n).RF = struct();  % 若之前已有 RF 字段，可先清空后再写
+    %% 2.1 Check for processed waveforms
+    waveKey = 'dataProcessed';  % default: use the preprocessed waveforms
+    if param.radonfilter
+        % If radonfilter = true, we prefer "dataRadonFiltered"
+        waveKey = 'dataRadonFiltered';
+    end
 
-    % 2.2 一些存在性检查
-    if ~isfield(DataStruct(n).Waveforms, 'dataProcessed') || ...
-            isempty(DataStruct(n).Waveforms.dataProcessed)
-        warnMsg = sprintf('[Deconv] No processed waveforms for trace %d, skip.', n);
+    if ~isfield(DataStruct(n).Waveforms, waveKey) || ...
+            isempty(DataStruct(n).Waveforms.(waveKey))
+        warnMsg = sprintf('[Deconv] No %s waveforms for trace %d -> skip.', waveKey, n);
         warning(warnMsg);
-        DataStruct=appendHistory(DataStruct, n, warnMsg);
+        DataStruct = appendHistory(DataStruct, n, warnMsg);
         noresult(end+1) = n;
         continue;
-    else
-        seisPRZ = DataStruct(n).Waveforms.dataProcessed;  % e.g., [Nt x 3] => [T,R,Z]
-        if size(seisPRZ,2) < 3
-            warnMsg = sprintf('[Deconv] dataProcessed has <3 comps for trace %d, skip.', n);
-            warning(warnMsg);
-            DataStruct=appendHistory(DataStruct, n, warnMsg);
-            noresult(end+1) = n;
-            continue;
-        end
     end
 
-    if param.radonfilter
-        if ~isfield(DataStruct(n).Waveforms, 'dataRadonFiltered') || ...
-                isempty(DataStruct(n).Waveforms.dataRadonFiltered)
-            warnMsg = sprintf('[Deconv] No Radon filtered waveforms for trace %d, skip.', n);
-            warning(warnMsg);
-            DataStruct=appendHistory(DataStruct, n, warnMsg);
-            noresult(end+1) = n;
-            continue;
-        else
-
-            seisPRZ = DataStruct(n).Waveforms.dataRadonFiltered;  % e.g., [Nt x 3] => [T,R,Z]
-            if size(seisPRZ,2) < 3
-                warnMsg = sprintf('[Deconv] dataRadonFiltered has <3 comps for trace %d, skip.', n);
-                warning(warnMsg);
-                DataStruct=appendHistory(DataStruct, n, warnMsg);
-                noresult(end+1) = n;
-                continue;
-            end
-        end
+    seisPRZ = DataStruct(n).Waveforms.(waveKey);  % e.g., [Nt x 3] = [T, R, Z]
+    if size(seisPRZ,2) < 3
+        warnMsg = sprintf('[Deconv] %s has <3 comps for trace %d -> skip.', waveKey, n);
+        warning(warnMsg);
+        DataStruct = appendHistory(DataStruct, n, warnMsg);
+        noresult(end+1) = n;
+        continue;
     end
 
-
-    % 检查时间轴
+    %% 2.2 Check time axis
     if ~isfield(DataStruct(n).TimeAxis, 't_resample') || ...
             isempty(DataStruct(n).TimeAxis.t_resample)
-        warnMsg = sprintf('[Deconv] TimeAxis.t_resample missing/empty for trace %d, skip.', n);
+        warnMsg = sprintf('[Deconv] t_resample missing for trace %d -> skip.', n);
         warning(warnMsg);
-        DataStruct=appendHistory(DataStruct, n, warnMsg);
-        noresult(end+1) = n;
-        continue;
-    end
-    t = DataStruct(n).TimeAxis.t_resample;
-    if length(t) ~= size(seisPRZ,1)
-        warnMsg = sprintf('[Deconv] length(t)=%d but size(seisPRZ,1)=%d mismatch, skip trace %d.', ...
-            length(t), size(seisPRZ,1), n);
-        warning(warnMsg);
-        DataStruct=appendHistory(DataStruct, n, warnMsg);
+        DataStruct = appendHistory(DataStruct, n, warnMsg);
         noresult(end+1) = n;
         continue;
     end
 
-    % 2.3 准备 R, Z 分量
-    R = seisPRZ(:,2);  % 假设: T=1, R=2, Z=3
-    Z = seisPRZ(:,3);
+    t = DataStruct(n).TimeAxis.t_resample;
+    if length(t) ~= size(seisPRZ,1)
+        warnMsg = sprintf('[Deconv] length(t)=%d but size(seisPRZ,1)=%d mismatch -> skip trace %d.', ...
+            length(t), size(seisPRZ,1), n);
+        warning(warnMsg);
+        DataStruct = appendHistory(DataStruct, n, warnMsg);
+        noresult(end+1) = n;
+        continue;
+    end
+
+    %% 2.3 Extract R/Z components (assuming T=1, R=2, Z=3)
+    R  = seisPRZ(:,2);
+    Z  = seisPRZ(:,3);
     dt = t(2) - t(1);
     nt = length(t);
 
-    %% 2.4 Perform water-level decon
+    % Make sure DataStruct(n).RF is at least an empty struct to fill results
+    if ~isfield(DataStruct(n), 'RF'), DataStruct(n).RF = struct(); end
+
+    %% 2.4 Water-level deconvolution
     try
+        % (The function signature of makeRFwater_ammon may vary in your codebase)
         [wlr, wlrms, nwl] = makeRFwater_ammon( ...
             R, Z, param.phaseshift, dt, nt, param.waterlevel, param.gauss, param.verbose);
 
-        % 写入 DataStruct(n).RF
-        DataStruct(n).RF.wlr   = wlr(:);
-        DataStruct(n).RF.wlrms = wlrms;
-        DataStruct(n).RF.nwl   = nwl;
-        DataStruct(n).RF.wltime= (dt*(0:nt-1) - param.phaseshift)';
+        % Store in DataStruct
+        DataStruct(n).RF.wlr    = wlr(:);
+        DataStruct(n).RF.wlrms  = wlrms;
+        DataStruct(n).RF.nwl    = nwl;
+        DataStruct(n).RF.wltime = (dt*(0:nt-1) - param.phaseshift)';
 
-        % 记录日志
-        logMsg = sprintf('[Deconv] Water-level decon success (gauss=%.2f, wlevel=%.3f)', ...
+        % Log message
+        logMsg = sprintf('[Deconv] Water-level decon OK (gauss=%.2f, wlevel=%.3f)', ...
             param.gauss, param.waterlevel);
-        DataStruct=appendHistory(DataStruct, n, logMsg);
+        DataStruct = appendHistory(DataStruct, n, logMsg);
 
     catch ME
-        warnMsg = sprintf('[Deconv] Trace %d: makeRFwater_ammon failed: %s', n, ME.message);
+        warnMsg = sprintf('[Deconv] Trace %d: Water-level decon failed: %s', n, ME.message);
         warning(warnMsg);
-        DataStruct=appendHistory(DataStruct, n, warnMsg);
+        DataStruct = appendHistory(DataStruct, n, warnMsg);
         noresult(end+1) = n;
         continue;
     end
 
-    %% 2.5 Perform iterative decon
+    %% 2.5 Iterative deconvolution
     try
+        % (Again, adapt to your actual function signature for iterative decon)
         [itr, itrms] = makeRFitdecon_la_norm( ...
             R, Z, dt, nt, param.phaseshift, param.gauss, param.itmax, param.minderr);
+        
+        if isempty(itrms)
+            % If itrms is empty, no valid solution
+            warnMsg = sprintf('[Deconv] Trace %d: empty itrms -> no iterative RF.', n);
+            warning(warnMsg);
+            DataStruct = appendHistory(DataStruct, n, warnMsg);
+            noresult(end+1) = n;
+        else
+            % Store iterative result
+            DataStruct(n).RF.itr    = itr(:);
+            DataStruct(n).RF.itrms  = itrms(end);
+            DataStruct(n).RF.ittime = (dt*(0:nt-1) - param.phaseshift)';
+
+            logMsg = sprintf('[Deconv] Iterative decon OK (gauss=%.2f, itmax=%d, minderr=%.1e)', ...
+                param.gauss, param.itmax, param.minderr);
+            DataStruct = appendHistory(DataStruct, n, logMsg);
+        end
     catch ME
-        warnMsg = sprintf('[Deconv] Trace %d: iterative decon failed: %s', n, ME.message);
+        warnMsg = sprintf('[Deconv] Trace %d: Iterative decon failed: %s', n, ME.message);
         warning(warnMsg);
-        DataStruct=appendHistory(DataStruct, n, warnMsg);
+        DataStruct = appendHistory(DataStruct, n, warnMsg);
         noresult(end+1) = n;
         continue;
     end
-
-    if isempty(itrms)
-        warnMsg = sprintf('[Deconv] Trace %d: empty itrms => no iterative RF.', n);
-        warning(warnMsg);
-        DataStruct=appendHistory(DataStruct, n, warnMsg);
-        noresult(end+1) = n;
-    else
-        DataStruct(n).RF.itr   = itr(:);
-        DataStruct(n).RF.itrms = itrms(end);
-        DataStruct(n).RF.ittime= (dt*(0:nt-1) - param.phaseshift)';
-
-        % 记录日志
-        logMsg = sprintf('[Deconv] Iter decon success (gauss=%.2f, itmax=%d, minderr=%.1e)', ...
-            param.gauss, param.itmax, param.minderr);
-        DataStruct=appendHistory(DataStruct, n, logMsg);
-    end
 end
 
-%% 3) 处理无效记录（可选）
+%% 3) Optionally remove traces with no results
 if ~isempty(noresult)
-    % 若你想在 MVP 阶段直接删除这些无结果记录，可取消注释:
+    % If desired, remove the invalid or unsuccessful records
     DataStruct(noresult) = [];
-    fprintf('Removed %d traces with no valid decon result.\n', length(noresult));
+    fprintf('Removed %d traces with no valid decon results.\n', length(noresult));
 end
 
-toc;
-disp('--- Deconvolution completed ---');
+elapsedTime = toc(tStart);
+disp(['--- Deconvolution completed in ' num2str(elapsedTime,'%.2f') ' s ---']);
 end
 
+%% Helper function: appendHistory
+function DataStruct = appendHistory(DataStruct, idx, msg)
+% APPENDHISTORY  Append a message to DataStruct(idx).ProcHistory.
+%                If it does not exist, create it as a cell array.
 
-%% 辅助函数：appendHistory
-function DataStruct=appendHistory(DataStruct, idx, msg)
-% APPENDHISTORY - a small helper to append a message to DataStruct(idx).ProcHistory
-% If DataStruct(idx).ProcHistory doesn't exist, we create it as a cell array.
 if ~isfield(DataStruct(idx), 'ProcHistory') || isempty(DataStruct(idx).ProcHistory)
     DataStruct(idx).ProcHistory = {msg};
 else
