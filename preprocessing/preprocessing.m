@@ -134,7 +134,8 @@ for n = 1:length(DataStruct)
         
         % Save to DataStruct
         DataStruct(n).TravelInfo.pTime    = pTime;
-        DataStruct(n).TravelInfo.rayParam = ptime(1).rayParam;     % s/rad
+%         DataStruct(n).TravelInfo.rayParam = ptime(1).rayParam;     % s/rad
+        DataStruct(n).TravelInfo.rayParam = ptime(1).rayParam/6371;
     catch ME
         msgPT = sprintf('[Error] taupTime: %s', ME.message);
         DataStruct(n).ProcHistory{end+1} = msgPT;
