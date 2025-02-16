@@ -64,12 +64,26 @@ CCPParam.LatMin = min(stla)-0.2;
 CCPParam.LatMax = max(stla)+0.2;
 CCPParam.LonMin = min(stlo)-0.2;
 CCPParam.LonMax = max(stlo)+0.2;
-CCPParam.BinSpacing = 50;
-CCPParam.BinSize = 50;
+CCPParam.BinSpacing = 25;
+CCPParam.BinSize = 25;
 CCPParam.StationCode = {stationList.sta}';
 
 ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam);
 
 %% 7. 结果输出
-plotCCPResults(ccpResult,stlo,stla)
+% plotCCPResults(ccpResult,stlo,stla)
+
+lon1 = 109.9250;
+lat1 = 42.3421;
+lon2 = 109.9250;
+lat2 = 41.1693;
+profile1=[lon1,lat1;lon2,lat2];
+
+lon1 = 109.0;
+lat1 = 41.7666;
+lon2 = 111.5;
+lat2 = 41.7666;
+profile2=[lon1,lat1;lon2,lat2];
+profile = {profile1,profile2};
+plotCCPXsection(ccpResult,stlo,stla,profile)
 

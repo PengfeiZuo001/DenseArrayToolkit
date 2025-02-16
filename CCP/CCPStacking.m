@@ -1,7 +1,7 @@
 function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
 
     ccp_data_directory = './matfiles/CCPData/';
-
+    % read in reference model
     [z, rho, vp, vs, qk, qm] = ak135( 'cont' );
     zmax = 800;
     dz = 0.5;
@@ -19,12 +19,20 @@ function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
 
     % call function to set up grid nodes
     CCPGrid = ccp_setup_grid(LatMin,LatMax,LonMin,LonMax,BinSpacing,BinSize);
+    
+    centers = [cell2mat(CCPGrid(:,2)) cell2mat(CCPGrid(:,1))];
+    radii = km2deg(cell2mat(CCPGrid(:,3)));
+    viscircles(centers,radii); hold on;
+    % plot station location
+    stationList = getStations(DataStruct);
+    stlo=[stationList.stlo];
+    stla=[stationList.stla];
+    scatter(stlo,stla,100,'^','filled')
+    disp('Create CCP bin completes')
 
     %% 1D raytracing and time to depth conversion
     disp('Migration starts')
     start_index = 1;
-    cp_lat = [];
-    cp_lon = [];
 
     for n = 1:length(stalist)
         disp(['Now processing station: ', stalist{n}]);
@@ -50,11 +58,7 @@ function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
         end
         % 1D ray tracing
         [cp, RayMatrix, MidPoints] = findConversionPoints(p, backaz, dz, zmax, z, vp, vs, lat, lon, 'spherical');
-        % save the conversion point location for GMT plot
-        cp_lat = [cp_lat; cp.latb(60,:)'];
-        cp_lon = [cp_lon; cp.lonb(60,:)'];
-        RayDepths = 1*dz:dz:zmax;
-        RayDepths = RayDepths(:); 
+        RayDepths = [1*dz:dz:zmax]';
         % corret for heterogenity
         [TimeCorrections, Tpds3D, Tpds1D] = correct_RFs(MidPoints, RayDepths, Fvp, Fvs, z, vp, vs);
         % reindex the RFs
@@ -85,7 +89,7 @@ function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
     RayMatrix_all = [];
     for n = 1:length(stalist)
         %
-        filename=[ccp_data_directory,'/CCPData',stalist{n},'.mat'];
+        filename=fullfile(ccp_data_directory,['CCPData',stalist{n},'.mat']);
         if exist(filename,'file')
             load(filename,'RayMatrix');
         else
@@ -95,7 +99,7 @@ function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
         RayMatrix_all = [RayMatrix_all, RayMatrix];
     %     nptsTotal = size(CCPGrid,1) * size(RayMatrix,1);
     %     nptsUpdate = floor(nptsTotal / 100);
-        kk = 0;
+
         for m = 1:size(CCPGrid,1) % Each Bin
             for k = 1:size(RayMatrix,1) % Each Depth
                 lons = RayMatrix(k,:,4) * pi/180;
@@ -181,41 +185,37 @@ function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
     end
     disp('CCP stacking completes')
 
-    %% rough output
-    rf = {};
+    %% create the interpolation volume
+    amp = {};
     nbin  = size(CCPGrid,1);
     lat = [];
     lon = [];
-    dep = [];
     k = 0;
-    dep0 = 0:dz:zmax;
-    
     for n = 1:nbin
         % check if bin exists
         binfile = ['./matfiles/CCPData','/Bin_',num2str(n),'.mat'];
         if exist(binfile,'file')
             k = k + 1;
             load(binfile);
-            rf{k} = RRFBootMean;
+            amp{k} = RRFBootMean;
             lat(k) = LatCCP;
             lon(k) = LonCCP;
         end
-        % scatter3(ones(size(rf{k}))*lon(k), ones(size(rf{k}))*lat(k), -dep0,30, rf{k}, 'filled' ); hold on;
     end
-    rf1 = cell2mat(rf);
-    %% create the interpolation volume
+    amp = cell2mat(amp);
+    dep = BootAxis;
     k = 0;
     V = [];
     for i = 1:length(lat)
-        for j = 1:length(dep0)
+        for j = 1:length(dep)
             k = k + 1;
-            V(k,:) = [lon(i) lat(i) dep0(j) rf1(j,i)];
+            V(k,:) = [lon(i) lat(i) dep(j) amp(j,i)];
         end
     end
     F = scatteredInterpolant(V(:,1),V(:,2),V(:,3),V(:,4));
 
-    ccpResult.rayMatrix = RayMatrix_all;
-    ccpResult.cp = cp;
+%     ccpResult.rayMatrix = RayMatrix_all;
+    ccpResult.CCPGrid = CCPGrid;
     ccpResult.rf = F;
 
 end
