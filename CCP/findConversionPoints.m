@@ -26,7 +26,7 @@
 % Ps - lat,lon, and Pp - lat,lon and index of receiver function (from 1 to nx)
 % MidPoints0: a (nz-1)*nx*7 matrix where the columns are Ps - lon,lat,raylength
 % and Pp - lon,lat,raylength, index of receiver function (from 1 to nx).
-function [cp, RayMatrix0, MidPoints0] = find_conversion_points_v2( p, backaz, dz, zmax, z, vp, vs, lat, lon, model_type)
+function [cp, RayMatrix0, MidPoints0] = findConversionPoints( p, backaz, dz, zmax, z, vp, vs, lat, lon, model_type)
 global dha dhb
 %- Code:
 % model_type: 'flat' or 'spherical'
