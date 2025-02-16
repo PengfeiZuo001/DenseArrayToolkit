@@ -2,7 +2,7 @@ function setupPaths()
     addpath ./processRFmatlab-master/
     processRFmatlab_startup;
     addpath(genpath('./data_io/'));
-    addpath(genpath('./CCP/'))
+addpath(genpath('./CCP/'));
     addpath(genpath('./preprocessing/'));
     addpath(genpath('./deconvolution/'));
     addpath(genpath('./array_processing/'));
