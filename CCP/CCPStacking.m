@@ -1,6 +1,6 @@
 function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
 
-    ccp_data_directory = './matfile/CCPData/';
+    ccp_data_directory = './matfiles/CCPData/';
 
     [z, rho, vp, vs, qk, qm] = ak135( 'cont' );
     zmax = 800;
@@ -31,26 +31,28 @@ function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
         seis = {};
         time = {};
         [CommonStationGather, ~] = getCommonStationGather(DataStruct,stalist{n});
-        
-        parfor ii = 1:length(CommonStationGather)
+        nevt = length(CommonStationGather);
+        backaz = zeros(1,nevt);
+        p = zeros(1,nevt);
+        parfor ii = 1:nevt
             seis{ii} = CommonStationGather(ii).RF.itr;
             time{ii} = CommonStationGather(ii).RF.ittime;
             backaz(1,ii) = CommonStationGather(ii).TravelInfo.baz;
-            p(1,ii) = CommonStationGather(ii).TravelInfo.rayParam;
+            p(1,ii) = CommonStationGather(ii).TravelInfo.rayParam;   % s/rad
         end
         nseis=length(seis);
         lat = CommonStationGather(1).StationInfo.stla;
         lon = CommonStationGather(1).StationInfo.stlo;
 
-        if mean(p)>1
-            % deg to km
-            p=km2deg(p);
+        % convert to s/km
+        if mean(p)>100
+            p = p./6371;
         end
         % 1D ray tracing
-        [cp, RayMatrix, MidPoints] = find_conversion_points_v2(p, backaz, dz, zmax, z, vp, vs, lat, lon, 'spherical');
+        [cp, RayMatrix, MidPoints] = findConversionPoints(p, backaz, dz, zmax, z, vp, vs, lat, lon, 'spherical');
         % save the conversion point location for GMT plot
-        cp_lat = [cp_lat; cp.latb(80,:)'];
-        cp_lon = [cp_lon; cp.lonb(80,:)'];
+        cp_lat = [cp_lat; cp.latb(60,:)'];
+        cp_lon = [cp_lon; cp.lonb(60,:)'];
         RayDepths = 1*dz:dz:zmax;
         RayDepths = RayDepths(:); 
         % corret for heterogenity
@@ -173,7 +175,7 @@ function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
         BootAxis = depth0;
         LatCCP = CCPGrid{i,1};
         LonCCP = CCPGrid{i,2};
-        CCPBinLead = ['./matfile/CCPData', filesep 'Bin_'];
+        CCPBinLead = ['./matfiles/CCPData', filesep 'Bin_'];
         CCPPath = [CCPBinLead, num2str(sprintf('%0.0f',i)), '.mat'];
         save([CCPPath],'RRFBootMean','RRFBootSigma','BootAxis','LatCCP','LonCCP');
     end
@@ -190,7 +192,7 @@ function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
     
     for n = 1:nbin
         % check if bin exists
-        binfile = ['./matfile/CCPData','/Bin_',num2str(n),'.mat'];
+        binfile = ['./matfiles/CCPData','/Bin_',num2str(n),'.mat'];
         if exist(binfile,'file')
             k = k + 1;
             load(binfile);
