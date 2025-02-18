@@ -35,11 +35,11 @@ evla = [eventList.evla]';    % 事件震中纬度
 evlo = [eventList.evlo]';    % 事件震中经度
 
 % 根据 config.max_angle_diff 对事件进行方位角一致性的筛选
-% idxConsistentEQ = filter_earthquakes_by_azimuth(stlo, stla, evlo, evla, config.max_angle_diff);
+idxConsistentEQ = filter_earthquakes_by_azimuth(stlo, stla, evlo, evla, config.max_angle_diff);
 
 % 筛选后的事件 ID 列表
 eventid = {eventList.evid};
-% eventid = eventid(idxConsistentEQ);
+eventid = eventid(idxConsistentEQ);
 
 % 生成事件-台站对应表，便于后续快速索引
 EventStationTable = getEventStationTable(DataStruct);

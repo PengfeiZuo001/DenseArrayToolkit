@@ -1,13 +1,17 @@
 function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
 
+    % 设置CCP数据目录
     ccp_data_directory = './matfiles/CCPData/';
-    % read in reference model
-    [z, rho, vp, vs, qk, qm] = ak135( 'cont' );
+    % 读取参考模型
+    [z, rho, vp, vs, qk, qm] = ak135('cont');
+    % 设置最大深度和深度间隔
     zmax = 800;
     dz = 0.5;
+    % 获取速度模型的vp和vs
     Fvp = velocityModel.vp;
     Fvs = velocityModel.vs;
 
+    % 从CCP参数中获取经纬度范围和网格参数
     LatMin = CCPParam.LatMin;
     LatMax = CCPParam.LatMax;
     LonMin = CCPParam.LonMin;
@@ -15,22 +19,24 @@ function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
     BinSpacing = CCPParam.BinSpacing;
     BinSize = CCPParam.BinSize;
 
+    % 获取站点列表
     stalist = CCPParam.StationCode;
 
-    % call function to set up grid nodes
-    CCPGrid = ccp_setup_grid(LatMin,LatMax,LonMin,LonMax,BinSpacing,BinSize);
+    % 调用函数设置网格节点
+    CCPGrid = ccp_setup_grid(LatMin, LatMax, LonMin, LonMax, BinSpacing, BinSize);
     
+    % 提取网格中心和半径，并绘制圆圈
     centers = [cell2mat(CCPGrid(:,2)) cell2mat(CCPGrid(:,1))];
     radii = km2deg(cell2mat(CCPGrid(:,3)));
     viscircles(centers,radii); hold on;
-    % plot station location
+    % 绘制站点位置
     stationList = getStations(DataStruct);
     stlo=[stationList.stlo];
     stla=[stationList.stla];
     scatter(stlo,stla,100,'^','filled')
     disp('Create CCP bin completes')
 
-    %% 1D raytracing and time to depth conversion
+    %% 1D射线追踪和时间到深度转换
     disp('Migration starts')
     start_index = 1;
 
@@ -59,7 +65,7 @@ function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
         % 1D ray tracing
         [cp, RayMatrix, MidPoints] = findConversionPoints(p, backaz, dz, zmax, z, vp, vs, lat, lon, 'spherical');
         RayDepths = [1*dz:dz:zmax]';
-        % corret for heterogenity
+        % correct for heterogeneity
         [TimeCorrections, Tpds3D, Tpds1D] = correct_RFs(MidPoints, RayDepths, Fvp, Fvs, z, vp, vs);
         % reindex the RFs
         end_index = start_index + nseis - 1;
@@ -88,7 +94,6 @@ function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
     disp('Assign RF starts')
     RayMatrix_all = [];
     for n = 1:length(stalist)
-        %
         filename=fullfile(ccp_data_directory,['CCPData',stalist{n},'.mat']);
         if exist(filename,'file')
             load(filename,'RayMatrix');
@@ -97,9 +102,6 @@ function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
         end
         % save matrix for individual station into a big matrix
         RayMatrix_all = [RayMatrix_all, RayMatrix];
-    %     nptsTotal = size(CCPGrid,1) * size(RayMatrix,1);
-    %     nptsUpdate = floor(nptsTotal / 100);
-
         for m = 1:size(CCPGrid,1) % Each Bin
             for k = 1:size(RayMatrix,1) % Each Depth
                 lons = RayMatrix(k,:,4) * pi/180;
@@ -117,15 +119,11 @@ function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
                 Indx = find(dist <= CCPGrid{m,3}); % This ONLY takes RFs falling into the bin
                 Temp{k,1} = RayMatrix(k,Indx,7); % Record IDs
                 TempDist{k,1} = dist(Indx);
-                if ~isempty(Indx)
-                    disp('')
-                end
             end
             CCPGrid{m,4} = [CCPGrid{m,4} Temp];
             CCPGrid{m,5} = [CCPGrid{m,5} TempDist];
             disp(['Processed bin: ',num2str(m),'/',num2str(size(CCPGrid,1))])
         end
-        
     end
     disp('Assign RF completes')
 
@@ -149,15 +147,11 @@ function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
             % matrices we just built.
             for k = 1:length(CCPGrid{i,4})
                 Ids = cell2mat(CCPGrid{i,4}(k,:));
-                %                 Dist = CCPGrid{n,4}{k};
                 if ~isempty(Ids)
                     for l = 1:length(Ids)
                         temp = find(RayMatrix_all(k,:,7) == Ids(l));
                         if ~isempty(temp)   % 06/12/2011: ADDED IF STATEMENT TO CHECK IF THE RECORD IDS EXIST IN THIS MATRIX
                             Rtemp(k,l) = RayMatrix_all(k,temp,1);
-                            
-                            % Ttemp(k,l) = RayMatrix(k,temp,2);
-                            %                         Wtemp(k,l) = exp(-(Dist(l)).^2./(2.*CCPGrid{n,3}.^2));
                             Wtemp(k,l) = 1; % weight of the matrix
                         end
                     end
@@ -214,7 +208,6 @@ function ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
     end
     F = scatteredInterpolant(V(:,1),V(:,2),V(:,3),V(:,4));
 
-%     ccpResult.rayMatrix = RayMatrix_all;
     ccpResult.CCPGrid = CCPGrid;
     ccpResult.rf = F;
 

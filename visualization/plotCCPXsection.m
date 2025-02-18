@@ -4,6 +4,8 @@ centers = [cell2mat(ccpResult.CCPGrid(:,2)) cell2mat(ccpResult.CCPGrid(:,1))];
 radii = km2deg(cell2mat(ccpResult.CCPGrid(:,3)));
 F = ccpResult.rf;
 depth0 = 0:0.5:200;
+% load colormap
+cmap = load('./visualization/colormap/roma.mat');
 figure
 set(gcf,'Position',[0 0 1600 800],'Color','w')
 scatter(stlo,stla,200,'^','filled'); hold on;
@@ -38,7 +40,6 @@ for n = 1:length(profile)
     end
    
     % plot the geometry of RFs
-
     LAT_profile = repmat(latp',length(depth0),1);
     LON_profile = repmat(lonp',length(depth0),1);
     DEP_profile = repmat(depth0',1,length(latp));
@@ -56,7 +57,7 @@ for n = 1:length(profile)
     % viscircles(centers,radii); hold on;
     surface(LON_profile,LAT_profile,-DEP_profile,Vprofile,'EdgeColor','none')
     zlim([-100 0])
-    colormap(seismic(3))
+    colormap(flipud(cmap.roma))
     caxis([-0.1 0.1])
     colorbar
     grid on; box on;
