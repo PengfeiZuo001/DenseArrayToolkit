@@ -91,7 +91,7 @@ lon1 = profileStruct.line_points(1, 1);
 lat1 = profileStruct.line_points(1, 2);
 lon2 = profileStruct.line_points(end, 1);
 lat2 = profileStruct.line_points(end, 2);
-direction = profileStruct.direction;
+
 evla = gather(1).EventInfo.evla;
 evlo = gather(1).EventInfo.evlo;
 

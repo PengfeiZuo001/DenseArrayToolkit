@@ -7,6 +7,8 @@ function plotMigrationResults(dmig,dmigls,x,z)
 d2d=mean(dmig,3);
 d2dls=mean(dmigls,3);
 xmax = max(x);
+% load colormap
+cmap = load('./visualization/colormap/roma.mat');
 figure();
 set(gcf,'Position',[100 100 800 800],'color','w')
 subplot(211)
@@ -31,5 +33,5 @@ title('LSM')
 set(gca,'fontsize',14)
 caxis([-cmax cmax]);
 colorbar
-colormap(seismic(1));
+colormap(flipud(cmap.roma));
 text(-0.12,0.98,'b)','Units','normalized','FontSize',18)
