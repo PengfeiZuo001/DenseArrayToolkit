@@ -41,14 +41,6 @@ pos{1} = linspace(0,len,nx);
 % calcualte the amount of time shift
 rayp=rayp*rad2km(1);
 theta= asind(rayp*vp/(6371-zmax)); % incidence angle
-% theta= -asind(rayp*vp/(6371-zmax)); % incidence angle
-
-% This part of the code is kind of ad-hoc and is used to determine the
-% incidence direction. You have to set the azimuth range properly based on
-% your own dataset.
-% if baz<=360 && baz>=180
-%     theta=-theta;
-% end
 
 % incidence direction is 1 if wavefield is propagating towards the
 % positive direction of the profile and -1 otherwise
@@ -62,5 +54,3 @@ if tmax<0
 else
     tshift=linspace(0,abs(tmax),nx);
 end
-
-

@@ -6,7 +6,7 @@
 %   2. 预处理
 %   3. 获取台阵和事件信息
 %   4. 创建速度模型
-%   5. 偏移成像
+%   5. CCP/偏移成像
 %   6. 可视化
 %   7. 保存结果
 
@@ -60,7 +60,7 @@ EventStationTable = getEventStationTable(DataStruct);
 profileStruct = getImagingProfile(DataStruct, config.profile_length);
 
 % 创建或获取速度模型，在后续偏移成像中使用
-velocityModel = getVelocityModel();
+velocityModel = getVelocityModel('2D');
 
 %% 5. 偏移成像
 %   以下注释掉的是其他可能的成像方案示例，可根据实际需要进行调用
@@ -70,10 +70,11 @@ velocityModel = getVelocityModel();
 % 准备保存偏移结果的矩阵，这里将所有事件的成像结果进行累积存储
 dmig   = [];  % 存储常规偏移结果
 dmigls = [];  % 存储最小二乘偏移结果
+dimg = [];    % 存储最CCP结果
 nMigratedEvents  = 1;   % 用于计数成功完成成像的事件数
 
 % 遍历所有符合筛选条件的事件
-for iEvent = 5
+for iEvent = 1:length(eventid)
     evid = eventid{iEvent}; 
     % 提取当前事件对应的地震记录子集（Common Event Gather）
     gather = getCommonEventGather(DataStruct, evid);
@@ -95,7 +96,10 @@ for iEvent = 5
     % 对数据进行反褶积处理，以获取更清晰的波形特征
     gather = deconv(gather, DeconvParam);
     
-    % 调用 leastSquaresMig 进行偏移成像，得到常规和最小二乘偏移结果
+    % 调用 CCPCommonEventGather 进行CCP成像
+    ccpResult = CCPCommonEventGather(gather,velocityModel, profileStruct, MigParam);
+    dimg(:,:,nMigratedEvents) = ccpResult.img;
+
     migResult = leastSquaresMig(gather, velocityModel, profileStruct, MigParam);
     
     % 将本次事件的成像结果累积到 dmig 和 dmigls 中
@@ -113,9 +117,10 @@ x = migResult.x;
 z = migResult.z;
 
 %% 6. 可视化
-% 将所有事件的成像结果 dmig / dmigls 汇总并进行绘图
-plotMigrationResults(dmig, dmigls, x, z);
+% 将所有事件的成像结果 dimg / dmig / dmigls 汇总并进行绘图
+plotCCPMigrationResults(dimg,dmig,dmigls,x,z)
 
 %% 7. 保存结果
 % 将最后一次得到的 migResult（也可以改为需要保存的汇总结果）写入到指定文件中
 write_MigResult([config.outputFolder,'/migResult.mat'], migResult);
+write_MigResult([config.outputFolder,'/ccpResult.mat'], ccpResult);
