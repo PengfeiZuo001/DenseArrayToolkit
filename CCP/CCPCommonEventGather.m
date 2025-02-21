@@ -1,4 +1,4 @@
-function ccpResult = CCPCommonEventGather(gather, velocityModel, profileStruct, param)
+function ccpResult = CCPCommonEventGather(gather, velocityModel, gridStruct, param)
 % CCPCommonEventGather  Perform Common Conversion Point stacking (CCP) on seismic data.
 %
 % Usage:
@@ -60,15 +60,9 @@ if isfield(gather(1), 'EventInfo') && isfield(gather(1).EventInfo, 'evid')
 end
 
 %% Unpack Profile and Velocity Model Information
-% Extract line endpoints from profileStruct
-lon1 = profileStruct.line_points(1, 1);
-lat1 = profileStruct.line_points(1, 2);
-lon2 = profileStruct.line_points(end, 1);
-lat2 = profileStruct.line_points(end, 2);
-
 % Unpack velocity model fields
-vp   = velocityModel.vp(:, 1);  % Assuming vp is 1D (velocity at top layer)
-vs   = velocityModel.vs(:, 1);  % Assuming vs is 1D (velocity at top layer)
+vp   = velocityModel.vp(:, 1);  % Assuming vp is 1D
+vs   = velocityModel.vs(:, 1);  % Assuming vs is 1D
 xpad = param.xpad;
 zmax = param.zmax;
 
@@ -119,14 +113,16 @@ dist_projected = zeros(ndep, nrf);
 for k = 1:nrf
     slon_tmp = [cp(k).lonb];
     slat_tmp = [cp(k).latb];
-    data = [slon_tmp(:), slat_tmp(:)];
-    centered_data = data - profileStruct.center;
-    projected_points = profileStruct.center + (centered_data * profileStruct.direction) * profileStruct.direction';
-    slat_projected = projected_points(:, 2);
-    slon_projected = projected_points(:, 1);
-    [deg, ~] = distance(lat1, lon1, slat_projected, slon_projected);
-    dist = deg * 2 * pi * 6371 / 360;
-    dist_projected(:, k) = dist;
+    [rx, ry] = latlonToProjectedCoords(slon_tmp, slat_tmp, gridStruct);
+    dist_projected(:, k) = rx;
+%     data = [slon_tmp(:), slat_tmp(:)];
+%     centered_data = data - profileStruct.center;
+%     projected_points = profileStruct.center + (centered_data * profileStruct.direction) * profileStruct.direction';
+%     slat_projected = projected_points(:, 2);
+%     slon_projected = projected_points(:, 1);
+%     [deg, ~] = distance(lat1, lon1, slat_projected, slon_projected);
+%     dist = deg * 2 * pi * 6371 / 360;
+%     dist_projected(:, k) = dist;
 end
 
 %% CCP Stacking Process
