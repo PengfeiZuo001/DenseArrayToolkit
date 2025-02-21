@@ -1,4 +1,4 @@
-function MigResult = leastSquaresMig(gather, velocityModel, profileStruct, param)
+function MigResult = leastSquaresMig(gather, velocityModel, gridStruct, param)
 % LEASTSQUARESMIG  Perform least squares migration (LSM) on seismic data.
 %
 % Usage:
@@ -87,10 +87,10 @@ end
 %  (1) Unpack profile & velocity model info
 % -------------------------------------------------------------------------
 % Example usage of profileStruct: (lon1, lat1) to (lon2, lat2)
-lon1 = profileStruct.line_points(1, 1);
-lat1 = profileStruct.line_points(1, 2);
-lon2 = profileStruct.line_points(end, 1);
-lat2 = profileStruct.line_points(end, 2);
+lon1 = gridStruct.principalAxisLatLon(1, 1);
+lat1 = gridStruct.principalAxisLatLon(1, 2);
+lon2 = gridStruct.principalAxisLatLon(end, 1);
+lat2 = gridStruct.principalAxisLatLon(end, 2);
 
 evla = gather(1).EventInfo.evla;
 evlo = gather(1).EventInfo.evlo;
@@ -105,6 +105,16 @@ if dist2 > dist1
     incidence_direction = 1;
 else
     incidence_direction = -1;
+end
+
+% project to profile
+stla = cellfun(@(stationinfo) stationinfo.stla, {gather.StationInfo}, 'UniformOutput', false);
+stlo = cellfun(@(stationinfo) stationinfo.stlo, {gather.StationInfo}, 'UniformOutput', false);
+stlo = cell2mat(stlo)';
+stla = cell2mat(stla)';
+[rx, ry] = latlonToProjectedCoords(stlo, stla, gridStruct);
+for n=1:length(gather)
+    gather(n).RF.rx = rx(n);
 end
 
 % If you need to compute great-circle distances, do so here,

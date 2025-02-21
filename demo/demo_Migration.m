@@ -57,8 +57,10 @@ EventStationTable = getEventStationTable(DataStruct);
 
 %% 4. 创建速度模型
 % 根据数据和配置文件中的测线长度信息，获取成像剖面的中心和方向等参数
-profileStruct = getImagingProfile(DataStruct, config.profile_length);
-
+% profileStruct = getImagingProfile(DataStruct, config.profile_length);
+dx = 5;
+dy = 5;
+gridStruct = createGrid(DataStruct, dx, dy);
 % 创建或获取速度模型，在后续偏移成像中使用
 velocityModel = getVelocityModel('2D');
 
@@ -85,22 +87,23 @@ for iEvent = 1:length(eventid)
     end
     
     % 根据成像剖面，将台站投影到 profile 上，便于后续空间处理
-    gather = project_stations(gather, profileStruct.center, profileStruct.direction, 1);
-    
-    % 进行射线变换（RadonTransform）以实现数组处理，如围绕某一时距-速度域的滤波等
+%     gather = project_stations(gather, profileStruct.center, profileStruct.direction, 1);
+
+    % 进行拉东变换（RadonTransform）以实现台阵处理
     gather = radonTransform(gather, RadonParam);
     
     % 设置反褶积参数，此处启用 radonfilter，进一步提升信号质量
     DeconvParam.radonfilter = true;
     
-    % 对数据进行反褶积处理，以获取更清晰的波形特征
+    % 对数据进行反褶积处理，以获取接收函数
     gather = deconv(gather, DeconvParam);
     
-    % 调用 CCPCommonEventGather 进行CCP成像
-    ccpResult = CCPCommonEventGather(gather,velocityModel, profileStruct, MigParam);
+    % 调用 CCPCommonEventGather 进行共转换点叠加成像
+    ccpResult = CCPCommonEventGather(gather,velocityModel, gridStruct, MigParam);
     dimg(:,:,nMigratedEvents) = ccpResult.img;
 
-    migResult = leastSquaresMig(gather, velocityModel, profileStruct, MigParam);
+    % 调用 leastSquaresMig 进行偏移成像
+    migResult = leastSquaresMig(gather, velocityModel, gridStruct, MigParam);
     
     % 将本次事件的成像结果累积到 dmig 和 dmigls 中
     dmig(:, :, nMigratedEvents)   = migResult.mig;
