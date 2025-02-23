@@ -106,7 +106,9 @@ switch  ModelType
         % interpolate 
         Fvp = scatteredInterpolant(X,Y,Z,VP);
         Fvs = scatteredInterpolant(X,Y,Z,VS);
-
+        velocityModel.z = zpos(1:end-1);
+        velocityModel.nz = length(zpos)-1;
+        velocityModel.dz = dz;
         velocityModel.vp = Fvp;
         velocityModel.vs = Fvs;
 
