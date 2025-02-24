@@ -38,9 +38,6 @@ end
 %     end
 % end
 
-
-gridType = '3D';
-
 % Display event info if available
 if isfield(gather(1), 'EventInfo') && isfield(gather(1).EventInfo, 'evid')
     disp(['Processing event: ', gather(1).EventInfo.evid]);
@@ -48,13 +45,16 @@ end
 
 %% Unpack Profile and Velocity Model Information
 % Unpack velocity model fields
-% vp   = velocityModel.vp(:, 1);  % Assuming vp is 1D
-% vs   = velocityModel.vs(:, 1);  % Assuming vs is 1D
-[z, r, vp, vs, ~, ~] = ak135('cont');
-
+if strcmp(velocityModel.ModelType ,'1D')
+    vp   = velocityModel.vp(:, 1);  % Assuming vp is 1D
+    vs   = velocityModel.vs(:, 1);  % Assuming vs is 1D
+    z = velocityModel.z;
+else
+    [z, r, vp, vs, ~, ~] = ak135('cont');
+end
 dz = gridStruct.dz;
 zmax = max(gridStruct.z);
-
+zout = 0:dz:zmax;
 %% Calculate Conversion Points
 nrf = length(gather);
 
@@ -82,11 +82,16 @@ tic;
 toc;
 disp('Ray tracing completed');
 
-Fvp = velocityModel.vp;
-Fvs = velocityModel.vs;
-% correct for heterogeneity
-RayDepths = (1*dz:dz:zmax)';
-[TimeCorrections, ~, ~] = correct_RFs(MidPoints, RayDepths, Fvp, Fvs, z, vp, vs);
+% make time correction if a regional 3D velocity model is available
+if strcmp(velocityModel.ModelType ,'3D')
+    Fvp = velocityModel.vp;
+    Fvs = velocityModel.vs;
+    % correct for heterogeneity
+    RayDepths = (1*dz:dz:zmax)';
+    [TimeCorrections, ~, ~] = correct_RFs(MidPoints, RayDepths, Fvp, Fvs, z, vp, vs);
+else
+    TimeCorrections = zeros(length(zout),length(rfsAll)); 
+end
 
 % Perform time-to-depth conversion for RFs
 disp('Time-to-depth conversion started');
@@ -111,9 +116,9 @@ for k = 1:nrf
 end
 
 %% CCP Stacking Process
-switch gridType
+switch velocityModel.ModelType
     % project to profile for 2D imaging
-    case '2D'
+    case '1D'
         % Set grid sizes (distance direction: dx, depth direction: dz)
         [X, Z] = meshgrid(gridStruct.x, gridStruct.z);
         nx = length(gridStruct.x);

@@ -62,13 +62,8 @@ dx = 5;
 dy = 5;
 gridStruct = createGrid(DataStruct, dx, dy);
 % 创建或获取速度模型，在后续偏移成像中使用
-velocityModel = getVelocityModel('2D');
-
+velocityModel = getVelocityModel('1D',gridStruct,5);
 %% 5. 偏移成像
-%   以下注释掉的是其他可能的成像方案示例，可根据实际需要进行调用
-%   ccpResult = ccp(DataStruct, velocityModel, CCPParam);
-%   hkResult  = hk(DataStruct, HKParam);
-
 % 准备保存偏移结果的矩阵，这里将所有事件的成像结果进行累积存储
 dmig   = [];  % 存储常规偏移结果
 dmigls = [];  % 存储最小二乘偏移结果
@@ -85,10 +80,7 @@ for iEvent = 1:length(eventid)
     if length(gather) < 50
         continue
     end
-    
-    % 根据成像剖面，将台站投影到 profile 上，便于后续空间处理
-%     gather = project_stations(gather, profileStruct.center, profileStruct.direction, 1);
-
+  
     % 进行拉东变换（RadonTransform）以实现台阵处理
     gather = radonTransform(gather, RadonParam);
     
@@ -99,7 +91,7 @@ for iEvent = 1:length(eventid)
     gather = deconv(gather, DeconvParam);
     
     % 调用 CCPCommonEventGather 进行共转换点叠加成像
-    ccpResult = CCPCommonEventGather(gather,velocityModel, gridStruct, MigParam);
+    ccpResult = CCPCommonEventGather(gather,velocityModel, gridStruct);
     dimg(:,:,nMigratedEvents) = ccpResult.img;
 
     % 调用 leastSquaresMig 进行偏移成像
