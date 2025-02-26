@@ -193,11 +193,14 @@ switch velocityModel.ModelType
             for k=1:length(zz)
                 i=floor((yy(k)-ymin)/dy)+1;
                 j=floor((xx(k)-xmin)/dx)+1;
-                if i>0 && j>0 && i<=ny && j<=nx
-                    amp=cp(n).amp(k);
+                % 计算z层索引m
+                m = floor((zz(k) - gridStruct.z(1)) / gridStruct.dz) + 1;
+                % 确保索引在有效范围内
+                if i>=1 && i<=ny && j>=1 && j<=nx && m>=1 && m<=nz
+                    amp = cp(n).amp(k);
                     if ~isnan(amp)
-                        count(i,j,k)=count(i,j,k)+1;
-                        V(i,j,k)=V(i,j,k)+amp;
+                        count(i,j,m) = count(i,j,m) + 1;
+                        V(i,j,m) = V(i,j,m) + amp;
                     end
                 end
             end
