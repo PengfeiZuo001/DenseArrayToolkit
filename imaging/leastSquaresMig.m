@@ -129,7 +129,7 @@ vp   = velocityModel.vp;
 vs   = velocityModel.vs;
 nx   = velocityModel.nx;
 nz   = velocityModel.nz;
-xpad = param.xpad;  % Horizontal padding if relevant
+xpad = abs(x(1));  % Horizontal padding if relevant
 
 % If you want to restrict the imaging domain according to zmax:
 zmaxSamples = floor(param.zmax / dz);

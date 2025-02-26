@@ -33,7 +33,7 @@ config.RadonParam.pmin       = -0.05;    % minimum slowness (s/km)
 config.RadonParam.minTraces  = 60;       % minimum number of traces per event
 config.RadonParam.N1         = 30;       % number of CG iterations
 config.RadonParam.N2         = 1;        % number of outer loop iterations
-config.RadonParam.plotRadon  = false;    % plot Radon results (true/false)
+config.RadonParam.plotRadon  = true;    % plot Radon results (true/false)
 
 %% 4. Rank Reduction parameters (Off-the-grid reconstruction)
 config.RankReductionParam.lonmin = 109.000;  % minimum longitude for grid

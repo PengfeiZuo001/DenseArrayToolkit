@@ -1,4 +1,4 @@
-%% DenseArrayToolkit Migration主函数示例
+%% DenseArrayToolkit Common Conversion Point Stacking主函数示例
 % 该脚本演示了从数据读取到成像结果可视化的基本流程。
 % 包含以下主要步骤：
 %   0. 设置路径和参数
@@ -6,7 +6,7 @@
 %   2. 预处理
 %   3. 获取台阵和事件信息
 %   4. 创建速度模型
-%   5. CCP/偏移成像
+%   5. CCP成像
 %   6. 可视化
 %   7. 保存结果
 
@@ -26,6 +26,7 @@ MigParam           = config.MigParam;
 RadonParam         = config.RadonParam;
 DeconvParam        = config.DeconvParam;
 
+dataFolder = './data/event_waveforms_QBII';
 %% 1. 读入数据
 % 读取 dataFolder 中的 SAC 格式地震数据，并封装到 DataStruct 中
 DataStruct = read_SAC(dataFolder);
@@ -45,28 +46,21 @@ stla = [stationList.stla]';  % 台站纬度
 evla = [eventList.evla]';    % 事件震中纬度
 evlo = [eventList.evlo]';    % 事件震中经度
 
-% 根据 config.max_angle_diff 对事件进行方位角一致性的筛选
-idxConsistentEQ = filter_earthquakes_by_azimuth(stlo, stla, evlo, evla, config.max_angle_diff);
-
-% 筛选后的事件 ID 列表
+% 事件 ID 列表
 eventid = {eventList.evid};
-eventid = eventid(idxConsistentEQ);
 
 % 生成事件-台站对应表，便于后续快速索引
 EventStationTable = getEventStationTable(DataStruct);
 
 %% 4. 创建速度模型
-% 根据数据和配置文件中的测线长度信息，获取成像剖面的中心和方向等参数
-% profileStruct = getImagingProfile(DataStruct, config.profile_length);
+% 根据台站位置，进行主成分分析，自动创建成像网格
 dx = 5;
 dy = 5;
 gridStruct = createGrid(DataStruct, dx, dy);
-% 创建或获取速度模型，在后续偏移成像中使用
-velocityModel = getVelocityModel('1D',gridStruct,5);
+% 创建或获取速度模型，在后续成像中使用
+velocityModel = getVelocityModel('3D',gridStruct,5);
 %% 5. 偏移成像
 % 准备保存偏移结果的矩阵，这里将所有事件的成像结果进行累积存储
-dmig   = [];  % 存储常规偏移结果
-dmigls = [];  % 存储最小二乘偏移结果
 dimg = [];    % 存储最CCP结果
 nMigratedEvents  = 1;   % 用于计数成功完成成像的事件数
 
@@ -76,46 +70,72 @@ for iEvent = 1:length(eventid)
     % 提取当前事件对应的地震记录子集（Common Event Gather）
     gather = getCommonEventGather(DataStruct, evid);
     
-    % 如果该事件的有效台站数小于 50，则跳过，以保证成像质量
-    if length(gather) < 50
+    % 如果该事件的有效台站数小于 60，则跳过，以保证成像质量
+    if length(gather) < 60
         continue
     end
   
     % 进行拉东变换（RadonTransform）以实现台阵处理
-    gather = radonTransform(gather, RadonParam);
+%     gather = radonTransform(gather, RadonParam);
     
     % 设置反褶积参数，此处启用 radonfilter，进一步提升信号质量
-    DeconvParam.radonfilter = true;
-    
+    DeconvParam.radonfilter = false;
+    DeconvParam.verbose = false;
     % 对数据进行反褶积处理，以获取接收函数
     gather = deconv(gather, DeconvParam);
     
     % 调用 CCPCommonEventGather 进行共转换点叠加成像
     ccpResult = CCPCommonEventGather(gather,velocityModel, gridStruct);
-    dimg(:,:,nMigratedEvents) = ccpResult.img;
-
-    % 调用 leastSquaresMig 进行偏移成像
-    migResult = leastSquaresMig(gather, velocityModel, gridStruct, MigParam);
-    
-    % 将本次事件的成像结果累积到 dmig 和 dmigls 中
-    dmig(:, :, nMigratedEvents)   = migResult.mig;
-    dmigls(:, :, nMigratedEvents) = migResult.migls;
-    
+    dimg(:,:,:,nMigratedEvents) = ccpResult.img;
+   
     % 关闭所有图窗，避免在批量处理时生成过多窗口
     close all;
     
     nMigratedEvents = nMigratedEvents + 1;
 end
-
-% 在循环结束后，获取最后一次偏移结果的横坐标 x 和深度坐标 z 用于可视化
-x = migResult.x;
-z = migResult.z;
-
 %% 6. 可视化
-% 将所有事件的成像结果 dimg / dmig / dmigls 汇总并进行绘图
-plotCCPMigrationResults(dimg,dmig,dmigls,x,z)
+% smooth the image
+X = ccpResult.X;
+Y = ccpResult.Y;
+Z = ccpResult.Z;
+% 对成像结果做平滑处理
+dimg_smooth = [];
+smoothLength = 3;
+for n = 1:size(dimg,4)
+    dimg_smooth(:,:,:,n) = smooth3(squeeze(dimg(:,:,:,n)),'box',smoothLength);
+end
+% 绘制切片
+figure;
+set(gcf,'Position',[50 50 800 800],'Color','w')
+V = mean(dimg,4);
+V_smooth = mean(dimg_smooth,4);
+h = slice(X,Y,Z,V_smooth,90,90,40);
+xlabel('X (km)');
+ylabel('Y (km)');
+zlabel('Z (km)');
+set(h(:),'EdgeColor','none')
+set(gca,'ZDir','reverse')
+colormap(flipud(roma));
+cmax = rms(V_smooth(:));
+caxis([-cmax cmax]);
 
+% plot user defined profiles
+x1 = 0;
+y1 = 0;
+x2 = 30;
+y2 = 90;
+x3 = 90;
+y3 = 100;
+x4 = 130;
+y4 = 160;
+x5 = 310;
+y5 = 30;
+profile1=[x1,y1;x2,y2];
+profile2=[x2,y2;x3,y3];
+profile3=[x3,y3;x4,y4];
+profile4=[x4,y4;x5,y5];
+profile = {profile1,profile2,profile3,profile4};
+plotCCPXsectionCartesian(X,Y,Z,V_smooth,gridStruct,profile)
 %% 7. 保存结果
-% 将最后一次得到的 migResult（也可以改为需要保存的汇总结果）写入到指定文件中
-write_MigResult([config.outputFolder,'/migResult.mat'], migResult);
+% 将ccpResult写入到指定文件中
 write_MigResult([config.outputFolder,'/ccpResult.mat'], ccpResult);

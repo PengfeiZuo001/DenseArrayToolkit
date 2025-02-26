@@ -1,4 +1,8 @@
-function  gridStruct = createGrid(DataStruct, dx, dy)
+function  gridStruct = createGrid(DataStruct, dx, dy, dz, zmax)
+if nargin < 4
+    dz = 1;
+    zmax = 100;
+end
 % 从数据结构中提取台站信息
 stationList = getStations(DataStruct);
 stlo = [stationList.stlo]';  % 台站经度
@@ -24,6 +28,52 @@ originLat=min(stla);
 coords = [stationX(:), stationY(:)];
 [coeff, ~, ~] = pca(coords);  % coeff 包含主成分方向
 
+% ========== 新增部分：检查并调整主成分方向 ==========
+threshold = cosd(5); % 5度阈值
+v1 = coeff(:,1);     % 主方向
+v2 = coeff(:,2);     % 次方向
+
+% 计算主方向与东/北的相似度
+dot_east = v1(1);
+dot_north_v1 = v1(2);
+
+if abs(dot_east) > abs(dot_north_v1) % 更接近东/西方向
+    if abs(dot_east) >= threshold
+        % 调整主方向为东/西
+        new_v1 = sign(dot_east)*[1; 0];
+        
+        % 调整次方向为北/南（根据次方向原始倾向）
+        new_v2 = sign(v2(2))*[0; 1];
+        
+        % 构建调整后的坐标变换矩阵
+        coeff_adjusted = [new_v1, new_v2];
+        
+        % 确保右手坐标系
+        if det(coeff_adjusted) < 0
+            coeff_adjusted(:,2) = -coeff_adjusted(:,2);
+        end
+        coeff = coeff_adjusted;
+    end
+else % 更接近北/南方向
+    if abs(dot_north_v1) >= threshold
+        % 调整主方向为北/南
+        new_v1 = sign(dot_north_v1)*[0; 1];
+        
+        % 调整次方向为东/西（根据次方向原始倾向）
+        new_v2 = sign(v2(1))*[1; 0];
+        
+        % 构建调整后的坐标变换矩阵
+        coeff_adjusted = [new_v1, new_v2];
+        
+        % 确保右手坐标系
+        if det(coeff_adjusted) < 0
+            coeff_adjusted(:,2) = -coeff_adjusted(:,2);
+        end
+        coeff = coeff_adjusted;
+    end
+end
+% ========== 修改结束 ==========
+
 % 主轴（最大方差方向）和次轴（最小方差方向）
 principal_axis = coeff(:,1);  % 主轴
 secondaryAxis = coeff(:,2);  % 次轴
@@ -44,13 +94,14 @@ ryInOriginalCoord = ry * coeff';
 %     DataStruct(n).StationInfo.rx = rx(1,)
 % end
 % 获取台阵的范围
-xpad = 5*dx;
+xpad = 10*dx;
 ypad = 5*dy;
 
 x_min = min(projection_on_principal_axis)-xpad;
 x_max = round(max(projection_on_principal_axis)/dx)*dx+xpad;
 y_min = min(projection_on_secondary_axis)-ypad;
 y_max = round(max(projection_on_secondary_axis)/dy)*dy+ypad;
+
 
 % 创建网格
 nx = floor((x_max - x_min) / dx) + 1;
@@ -135,21 +186,35 @@ grid on;
 title('Station Positions, PCA Axes, and Grid Points in Original Coordinate System');
 hold off;
 set(gca,'fontsize',14)
-
+% construct depth axis
+z = 0:dz:zmax;
+nz = length(z);
+% calculate the area limit in lat,lon
+[LonMin,LatMin] = xy2latlon(min(XInOriginalCoord(:)),min(YInOriginalCoord(:)),originLon,originLat);
+[LonMax,LatMax] = xy2latlon(max(XInOriginalCoord(:)),max(YInOriginalCoord(:)),originLon,originLat);
 % 返回网格的参数
 gridStruct = struct( ...
     'originLon', originLon, ...
     'originLat', originLat, ...
     'originX', 0, ...
     'originY', 0, ...
+    'LatMin', LatMin, ...
+    'LonMin', LonMin, ...
+    'LatMax', LatMax, ...
+    'LonMax', LonMax, ...
     'X', X, ...
     'Y', Y, ...
+    'x', x, ...
+    'y', y, ...
+    'z', z, ...
     'XInOriginalCoord',XInOriginalCoord, ...
     'YInOriginalCoord', YInOriginalCoord, ...
     'dx', dx, ...
     'dy', dy, ...
+    'dz', dz, ...
     'nx', nx, ...
     'ny', ny, ...
+    'nz', nz, ...
     'rx', rx, ...
     'ry', ry, ...
     'rxInOriginalCoord',rxInOriginalCoord, ...

@@ -1,16 +1,15 @@
-function velocityModel = getVelocityModel(ModelType, varargin)
+function velocityModel = getVelocityModel(ModelType, gridStruct, npts)
 
+velocityModel.ModelType = ModelType;
 switch  ModelType
-    case '2D'
-        xpad = 50;
-        xmax = 350;
+    case '1D'
         model = obtain_crust1_QB();
-        dx = 4;
-        x = 0-xpad:dx:xmax+xpad;
-        nx = length(x);
-        dz = 1;
-        z = 0:dz:100;
-        nz = length(z);
+        x = gridStruct.x;
+        nx = gridStruct.nx;
+        z = gridStruct.z;
+        nz = gridStruct.nz;
+        dx = gridStruct.dx;
+        dz = gridStruct.dz;
         vp = interp1(model(:,1),model(:,2),z,'nearest','extrap');
         vs = interp1(model(:,1),model(:,3),z,'nearest','extrap');
         vel = repmat(vp(:),1,nx);
@@ -23,25 +22,24 @@ switch  ModelType
         [vel_s,~]=moving_avg(vel_s,N,'constant',2);
         [vel_s,~]=moving_avg(vel_s,N,'constant');
         
+        velocityModel.xpad = abs(x(1));
+        velocityModel.xmax = max(x);
         velocityModel.x = x;
         velocityModel.z = z;
-        velocityModel.xmax = xmax;
         velocityModel.nx = nx;
         velocityModel.nz = nz;
         velocityModel.dx = dx;
         velocityModel.dz = dz;
-        velocityModel.xpad = xpad;
         velocityModel.vp = vel;
         velocityModel.vs = vel_s;
-    
+    case '2D'
+        % some user defined 2D velocity model
+        
     case '3D'
-
-        LatMin = varargin{1, 1}.LatMin;
-        LatMax = varargin{1, 1}.LatMax;
-        LonMin = varargin{1, 1}.LonMin;
-        LonMax = varargin{1, 1}.LonMax;
-
-        npts = varargin{1, 1}.npts;
+        LatMin = gridStruct.LatMin;
+        LatMax = gridStruct.LatMax;
+        LonMin = gridStruct.LonMin;
+        LonMax = gridStruct.LonMax;
 
         [z, rho, vp, vs, qk, qm] = ak135( 'cont' );
         zmax = 800;
@@ -82,7 +80,7 @@ switch  ModelType
                 dmoho(knode) = m0(end,1);
                 dmax = 1000;
                 keepz=z>dmoho(knode) & z<dmax;
-                % deal with the upper mantle, use the PREM model
+                % deal with the upper mantle, use the AK135 model
                 m_interface = [m_interface; z(keepz) vp(keepz) vs(keepz) rho(keepz)];
                 EPS = 1e-6;
                 ztemp = m_interface(:,1);
@@ -106,7 +104,6 @@ switch  ModelType
         % interpolate 
         Fvp = scatteredInterpolant(X,Y,Z,VP);
         Fvs = scatteredInterpolant(X,Y,Z,VS);
-
         velocityModel.vp = Fvp;
         velocityModel.vs = Fvs;
 
