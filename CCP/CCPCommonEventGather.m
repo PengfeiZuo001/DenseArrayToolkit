@@ -25,13 +25,18 @@ function ccpResult = CCPCommonEventGather(gather, velocityModel, gridStruct)
 % Date: Feb. 18, 2025
 
 %% Input Validation and Parameter Defaults
-% Validate gather
+% Validate input data structure and parameters
+% --------------------------------------------------
+% Validate seismic gather structure
+% - Check if gather is non-empty struct array
+% - Each gather element should contain RF data and travel time information
 if isempty(gather) || ~isstruct(gather)
     error('CCPCommonEventGather:InvalidGather', 'Gather must be a non-empty struct array.');
 end
 
-% Validate velocityModel fields
+% Validate velocityModel fields (currently disabled)
 % requiredVMfields = {'x', 'z', 'vp', 'vs', 'dx', 'dz', 'nx', 'nz'};
+% Uncomment and complete this validation if needed
 % for f = requiredVMfields
 %     if ~isfield(velocityModel, f{1})
 %         error('CCPCommonEventGather:MissingVelocityModelField', 'Field "%s" is missing in velocityModel.', f{1});
@@ -44,7 +49,10 @@ if isfield(gather(1), 'EventInfo') && isfield(gather(1).EventInfo, 'evid')
 end
 
 %% Unpack Profile and Velocity Model Information
-% Unpack velocity model fields
+% Extract velocity model parameters and grid configuration
+% --------------------------------------------------
+% velocityModel contains either 1D or 3D velocity information
+% gridStruct defines the imaging grid parameters
 if strcmp(velocityModel.ModelType ,'1D')
     vp   = velocityModel.vp(:, 1);  % Assuming vp is 1D
     vs   = velocityModel.vs(:, 1);  % Assuming vs is 1D
@@ -55,7 +63,13 @@ end
 dz = gridStruct.dz;
 zmax = max(gridStruct.z);
 zout = 0:dz:zmax;
-%% Calculate Conversion Points
+%% Calculate Conversion Points and Ray Tracing
+% --------------------------------------------------
+% Key Steps:
+% 1. Extract receiver function (RF) data and time axes
+% 2. Calculate ray parameters from travel time information
+% 3. Perform ray tracing to find conversion points
+% 4. Apply 3D velocity corrections if needed
 nrf = length(gather);
 
 % Extract RFs and times from gather
@@ -93,7 +107,14 @@ else
     TimeCorrections = zeros(length(zout),length(rfsAll)); 
 end
 
-% Perform time-to-depth conversion for RFs
+% Time-to-Depth Conversion
+% --------------------------------------------------
+% Convert RFs from time domain to depth domain using:
+% - Ray parameters (raypAll)
+% - Velocity model (vp, vs)
+% - Time corrections from 3D velocity model (if applicable)
+% This converts the time-based RF measurements to depth coordinates
+% matching the imaging grid
 disp('Time-to-depth conversion started');
 tic;
 [~, rfsAll_depth, ~] = rf_migrate(timeAll, rfsAll, raypAll, gridStruct.dz, zmax, z, vp, vs, TimeCorrections);
@@ -116,6 +137,16 @@ for k = 1:nrf
 end
 
 %% CCP Stacking Process
+% --------------------------------------------------
+% Core algorithm steps:
+% 1. Initialize imaging grid based on gridStruct parameters
+% 2. Bin RF amplitudes into spatial grid cells
+% 3. Stack (sum) amplitudes in each cell
+% 4. Normalize by sample count in each cell
+% 
+% Handles both 1D and 3D velocity models differently:
+% - 1D: Simple 2D (distance-depth) stacking
+% - 3D: Full 3D spatial binning with progress tracking
 switch velocityModel.ModelType
     % project to profile for 2D imaging
     case '1D'
@@ -193,9 +224,9 @@ switch velocityModel.ModelType
             for k=1:length(zz)
                 i=floor((yy(k)-ymin)/dy)+1;
                 j=floor((xx(k)-xmin)/dx)+1;
-                % 计算z层索引m
-                m = floor((zz(k) - gridStruct.z(1)) / gridStruct.dz) + 1;
-                % 确保索引在有效范围内
+        % Calculate z-layer index
+        m = floor((zz(k) - gridStruct.z(1)) / gridStruct.dz) + 1;
+        % Validate array indices
                 if i>=1 && i<=ny && j>=1 && j<=nx && m>=1 && m<=nz
                     amp = cp(n).amp(k);
                     if ~isnan(amp)
@@ -206,34 +237,7 @@ switch velocityModel.ModelType
             end
 
         end
-        V = V./max(count,1);
-
-        % V1 = zeros(nx, ny, nz); % Store accumulated amplitude values
-        % count1 = zeros(nx, ny, nz); % Store sample count for each grid       
-        % % Perform parallel processing for speed        
-        %         parfor i = 1:nz
-        %             for j = 1:nx
-        %                 for k = 1:ny
-        %                     for n = 1:length(cp)
-        %                         xi = cp(n).rx;
-        %                         yi = cp(n).ry;
-        %                         zi = cp(n).zpos;
-        %                         vi = cp(n).amp;
-        %                         keep = xi >= gridStruct.x(j) - 2 * gridStruct.dx & xi <= gridStruct.x(j) + 2 * gridStruct.dx & ...
-        %                             yi >= gridStruct.y(k) - 2 * gridStruct.dy & yi <= gridStruct.y(k) + 2 * gridStruct.dy & ...
-        %                             zi >= gridStruct.z(i) - 2 * gridStruct.dz & zi <= gridStruct.z(i) + 2 * gridStruct.dz;
-        %                         V1(j, k, i) = V1(j, k, i) + sum(vi(keep));
-        %                         count1(j, k, i) = count1(j, k, i) + sum(keep);
-        %                     end
-        %                 end
-        %             end
-        %         end
-        %         V1 = V1./max(count1,1);
-        %         figure; 
-        %         h = slice(permute(V,[2,3,1]),10,10,10);
-        %         set(h(:),'EdgeColor','none')
-        %         set(gca,'ZDir','reverse')
-        %         colormap(flipud(roma));
+%         V = V./max(count,1);  % Disabled alternative normalization
 
         ccpResult = struct('X', X, 'Y', Y, 'Z', Z, 'img', V, 'count', count);
 end
