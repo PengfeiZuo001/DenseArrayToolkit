@@ -26,13 +26,11 @@ MigParam           = config.MigParam;
 RadonParam         = config.RadonParam;
 DeconvParam        = config.DeconvParam;
 
-dataFolder1 = './data/event_waveforms_QBI';
-dataFolder2 = './data/event_waveforms_QBII';
+dataFolder = './data/event_waveforms_QBII';
 %% 1. 读入数据
 % 读取 dataFolder 中的 SAC 格式地震数据，并封装到 DataStruct 中
-DataStruct1 = read_SAC(dataFolder1);
-DataStruct2 = read_SAC(dataFolder2);
-DataStruct = [DataStruct1 DataStruct2];
+DataStruct = read_SAC(dataFolder);
+
 %% 2. 预处理
 % 根据配置的预处理参数（如滤波、去均值、切片等）对 DataStruct 进行处理
 DataStruct = preprocessing(DataStruct, PreprocessingParam);
@@ -60,11 +58,10 @@ dx = 5;
 dy = 5;
 gridStruct = createGrid(DataStruct, dx, dy);
 % 创建或获取速度模型，在后续成像中使用
-velocityModel = getVelocityModel('3D',gridStruct,10);
+velocityModel = getVelocityModel('3D',gridStruct,5);
 %% 5. 偏移成像
 % 准备保存偏移结果的矩阵，这里将所有事件的成像结果进行累积存储
 dimg = [];    % 存储最CCP结果
-count = [];
 nMigratedEvents  = 1;   % 用于计数成功完成成像的事件数
 
 % 遍历所有符合筛选条件的事件
@@ -90,7 +87,6 @@ for iEvent = 1:length(eventid)
     % 调用 CCPCommonEventGather 进行共转换点叠加成像
     ccpResult = CCPCommonEventGather(gather,velocityModel, gridStruct);
     dimg(:,:,:,nMigratedEvents) = ccpResult.img;
-    count(:,:,:,nMigratedEvents) = ccpResult.count;
    
     % 关闭所有图窗，避免在批量处理时生成过多窗口
     close all;
@@ -105,15 +101,14 @@ Z = ccpResult.Z;
 % 对成像结果做平滑处理
 dimg_smooth = [];
 smoothLength = 3;
-% for n = 1:size(dimg,4)
-%     img = dimg(:,:,:,n)./max(count(:,:,:,n),1);
-%     dimg_smooth(:,:,:,n) = smooth3(img,'box',smoothLength);
-% end
-V_smooth = smooth3(sum(dimg,4)./max(sum(count,4),1),'box',smoothLength);
+for n = 1:size(dimg,4)
+    dimg_smooth(:,:,:,n) = smooth3(squeeze(dimg(:,:,:,n)),'box',smoothLength);
+end
 % 绘制切片
 figure;
 set(gcf,'Position',[50 50 800 800],'Color','w')
-% V_smooth = mean(dimg_smooth,4);
+V = mean(dimg,4);
+V_smooth = mean(dimg_smooth,4);
 h = slice(X,Y,Z,V_smooth,90,90,40);
 xlabel('X (km)');
 ylabel('Y (km)');
@@ -123,15 +118,24 @@ set(gca,'ZDir','reverse')
 colormap(flipud(roma));
 cmax = rms(V_smooth(:));
 caxis([-cmax cmax]);
-view(0,90)
-% [xpoints,ypoints] = ginput;
 
-profile_all={};
-for n = 1:length(xpoints)-1
-    profile=[xpoints(n),ypoints(n);xpoints(n+1),ypoints(n+1)];
-    profile_all{n} = profile;
-end
-plotCCPXsectionCartesian(X,Y,Z,V_smooth,gridStruct,profile_all)
+% plot user defined profiles
+x1 = 0;
+y1 = 0;
+x2 = 30;
+y2 = 90;
+x3 = 90;
+y3 = 100;
+x4 = 130;
+y4 = 160;
+x5 = 310;
+y5 = 30;
+profile1=[x1,y1;x2,y2];
+profile2=[x2,y2;x3,y3];
+profile3=[x3,y3;x4,y4];
+profile4=[x4,y4;x5,y5];
+profile = {profile1,profile2,profile3,profile4};
+plotCCPXsectionCartesian(X,Y,Z,V_smooth,gridStruct,profile)
 %% 7. 保存结果
 % 将ccpResult写入到指定文件中
 write_MigResult([config.outputFolder,'/ccpResult.mat'], ccpResult);
