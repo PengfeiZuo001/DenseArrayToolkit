@@ -126,23 +126,6 @@ caxis([-cmax cmax]);
 view(0,90)
 % [xpoints,ypoints] = ginput;
 
-% plot user defined profiles
-% x1 = 0;
-% y1 = 0;
-% x2 = 25;
-% y2 = 85;
-% x3 = 80;
-% y3 = 100;
-% x4 = 130;
-% y4 = 160;
-% x5 = 310;
-% y5 = 30;
-% profile1=[x1,y1;x2,y2];
-% profile2=[x2,y2;x3,y3];
-% profile3=[x3,y3;x4,y4];
-% profile4=[x4,y4;x5,y5];
-% profile = {profile1,profile2,profile3,profile4};
-
 profile_all={};
 for n = 1:length(xpoints)-1
     profile=[xpoints(n),ypoints(n);xpoints(n+1),ypoints(n+1)];
