@@ -22,5 +22,5 @@ demLat = demLat;  % [M x 1]
 demLon = demLon;  % [N x 1]
 demZ = demZ;    % [M x N], Z(i,j) 与 (demLat(i), demLon(j)) 对应
 
-%save Qaidam_DEM.mat demLat demLon demZ;
-save Baiyanebo_DEM.mat demLat demLon demZ;
+save Qaidam_DEM.mat demLat demLon demZ;
+% save Baiyanebo_DEM.mat demLat demLon demZ;
