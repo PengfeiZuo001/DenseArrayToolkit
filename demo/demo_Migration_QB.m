@@ -126,12 +126,12 @@ caxis([-cmax cmax]);
 view(0,90)
 % [xpoints,ypoints] = ginput;
 
-profile_all={};
+profileAll={};
 for n = 1:length(xpoints)-1
     profile=[xpoints(n),ypoints(n);xpoints(n+1),ypoints(n+1)];
-    profile_all{n} = profile;
+    profileAll{n} = profile;
 end
-plotCCPXsectionCartesian(X,Y,Z,V_smooth,gridStruct,profile_all)
+plotCCPXsectionCartesian(X,Y,Z,V_smooth,gridStruct,profileAll)
 %% 7. 保存结果
 % 将ccpResult写入到指定文件中
 write_MigResult([config.outputFolder,'/ccpResult.mat'], ccpResult);
