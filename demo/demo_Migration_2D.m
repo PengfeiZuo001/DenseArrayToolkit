@@ -62,7 +62,7 @@ dx = 5;
 dy = 5;
 gridStruct = createGrid(DataStruct, dx, dy);
 % 创建或获取速度模型，在后续偏移成像中使用
-velocityModel = getVelocityModel('1D',gridStruct,5);
+gridStruct = getVelocityModel('1D',gridStruct);
 %% 5. 偏移成像
 % 准备保存偏移结果的矩阵，这里将所有事件的成像结果进行累积存储
 dmig   = [];  % 存储常规偏移结果
@@ -81,21 +81,22 @@ for iEvent = 1:length(eventid)
         continue
     end
   
-    % 进行拉东变换（RadonTransform）以实现台阵处理
-    gather = radonTransform(gather, RadonParam);
-    
-    % 设置反褶积参数，此处启用 radonfilter，进一步提升信号质量
-    DeconvParam.radonfilter = true;
-    
+    % 是否启用 radonfilter，进一步提升信号质量
+    if DeconvParam.radonfilter
+        % 进行拉东变换（RadonTransform）以实现台阵处理
+        gather = radonTransform(gather, RadonParam);
+    end
+
     % 对数据进行反褶积处理，以获取接收函数
+    DeconvParam.verbose = false;
     gather = deconv(gather, DeconvParam);
     
     % 调用 CCPCommonEventGather 进行共转换点叠加成像
-    ccpResult = CCPCommonEventGather(gather,velocityModel, gridStruct);
-    dimg(:,:,nMigratedEvents) = ccpResult.img;
+    ccpResult = CCPCommonEventGather(gather, gridStruct);
+    dimg(:,:,nMigratedEvents) = ccpResult.img./max(ccpResult.count,1);
 
     % 调用 leastSquaresMig 进行偏移成像
-    migResult = leastSquaresMig(gather, velocityModel, gridStruct, MigParam);
+    migResult = leastSquaresMig(gather, gridStruct, MigParam);
     
     % 将本次事件的成像结果累积到 dmig 和 dmigls 中
     dmig(:, :, nMigratedEvents)   = migResult.mig;

@@ -27,8 +27,7 @@ xlabel('X (km)');
 ylabel('Y (km)');
 zlabel('Z (km)');
 set(h(:),'EdgeColor','none')
-set(gca,'ZDir','reverse')
-set(gca,'FontSize',16)
+set(ax1,'ZDir','reverse','YDir','reverse','FontSize',16)
 % % 绘制网格点的位置
 % scatter(gridStruct.X(:), gridStruct.Y(:), 10, 'k', 'filled', ...
 %     'DisplayName', 'Grid Points');
@@ -84,14 +83,20 @@ ax2 = axes('Position', ax1.Position, ...
            'XTick', [], 'YTick', [], 'ZTick', [], ...
            'View', ax1.View); % 隐藏坐标刻度
 linkaxes([ax1,ax2])
-hdem = surface(ax2,demX,demY,-5*demZ);
+demZ = -30*demZ/max(demZ(:));
+hdem = surface(ax2,demX,demY,demZ); hold on;
+% extract station elevation
+rx = gridStruct.rx(:,1);
+ry = gridStruct.ry(:,2);
+rz = interp2(demX,demY,demZ,rx,ry);
+scatter3(ax2,rx,ry,rz,100,'^','MarkerFaceColor','r','MarkerEdgeColor','k');
 % scatter3(ax2,demX(:),demY(:),-demZ(:),30,demZ(:),'filled')
 colormap(ax2,'parula')
 set(hdem,'EdgeColor','none','FaceAlpha',0.8)
 zlim([ax1.ZLim])
 xlim([ax1.XLim])
 ylim([ax1.YLim])
-set(ax2,'ZDir','reverse','Visible','off')
+set(ax2,'ZDir','reverse','YDir','reverse','Visible','off')
 
 fig = figure();
 set(gcf,'Position',[50 50 1200 600],'Color','w')

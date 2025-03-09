@@ -11,18 +11,20 @@ originLon=min(stlo);
 originLat=min(stla);
 % 将经纬度转换为笛卡尔坐标（相对最小经纬度）
 [stationX, stationY] = latlon2xy(stlo, stla, originLon, originLat);
-% stationX = stationX-mean(stationX);
-% stationY = stationY-mean(stationY);
 
-% % 计算所有相邻台站之间的欧几里得距离
-% n = length(stationX);
-% distances = zeros(n-1, 1);  % 存储相邻台站之间的距离
-% for i = 1:n-1
-%     distances(i) = sqrt((stationX(i) - stationX(i+1))^2 + (stationY(i) - stationY(i+1))^2);
-% end
-% 
-% % 计算相邻台站的平均距离
-% avgDistance = mean(distances);  % 计算相邻台站的平均距离
+if nargin < 2
+    % 计算所有相邻台站之间的欧几里得距离
+    n = length(stationX);
+    distances = zeros(n-1, 1);  % 存储相邻台站之间的距离
+    for i = 1:n-1
+        distances(i) = sqrt((stationX(i) - stationX(i+1))^2 + (stationY(i) - stationY(i+1))^2);
+    end
+    %
+    % 计算相邻台站的平均距离
+    avgDistance = mean(distances);  % 计算相邻台站的平均距离
+    dx = avgDistance;
+    dy = avgDistance;
+end
 
 % 执行主成分分析（PCA）
 coords = [stationX(:), stationY(:)];
@@ -194,6 +196,10 @@ nz = length(z);
 [LonMax,LatMax] = xy2latlon(max(XInOriginalCoord(:)),max(YInOriginalCoord(:)),originLon,originLat);
 % 返回网格的参数
 gridStruct = struct( ...
+    'stationLon', stlo, ...
+    'stationLat', stla, ...
+    'stationX', stationX, ...
+    'stationY', stationY, ...
     'originLon', originLon, ...
     'originLat', originLat, ...
     'originX', 0, ...

@@ -1,8 +1,8 @@
-function MigResult = leastSquaresMig(gather, velocityModel, gridStruct, param)
+function MigResult = leastSquaresMig(gather, gridStruct, param)
 % LEASTSQUARESMIG  Perform least squares migration (LSM) on seismic data.
 %
 % Usage:
-%   MigResult = leastSquaresMig(gather, velocityModel, profileStruct, param)
+%   MigResult = leastSquaresMig(gather, gridStruct, param)
 %
 % Inputs:
 %   gather         : A struct array of seismic traces for one event or gather.
@@ -11,14 +11,8 @@ function MigResult = leastSquaresMig(gather, velocityModel, gridStruct, param)
 %                       .TravelInfo.rayParam, .baz - Ray parameter, back-azimuth
 %                       .TimeAxis.t_resample, .TimeAxis.dt_resample - time axis
 %
-%   velocityModel  : Struct describing velocity model, e.g.:
-%                       .x, .z, .nx, .nz, .dx, .dz, .vp, .vs, ...
-%                     Additional fields can be included if needed.
 %
-%   profileStruct  : Struct with profile-related info, e.g.:
-%                       .line_points   [N x 2] (lon, lat) or (x, y)
-%                       .center        [lon0, lat0] or [x0, y0]
-%                       .direction     'NE-SW' or other orientation
+%   gridStruct  : Struct with grid-related info, e.g.:
 %
 %   param          : Migration and reconstruction parameters, for example:
 %       .ssa        (bool)   - if true, use SSA-based reconstruction
@@ -40,7 +34,7 @@ function MigResult = leastSquaresMig(gather, velocityModel, gridStruct, param)
 %
 % Example:
 %   config.MigParam.zmax = 100;
-%   MigResult = leastSquaresMig(gather, velocityModel, profile, config.MigParam);
+%   MigResult = leastSquaresMig(gather, profile, config.MigParam);
 %
 % Author:  Yunfeng Chen (Refined by ChatGPT)
 % Date   :  Jan. 25, 2025
@@ -48,21 +42,12 @@ function MigResult = leastSquaresMig(gather, velocityModel, gridStruct, param)
 %% ------------------------------------------------------------------------
 %  (0) Check input structures & fill default parameters
 % -------------------------------------------------------------------------
-if nargin < 4,  param = struct(); end
+if nargin < 3,  param = struct(); end
 
 % Ensure gather has at least one valid entry
 if isempty(gather) || ~isstruct(gather)
     error('leastSquaresMig:InvalidGather', ...
           'Gather is empty or not a struct array.');
-end
-
-% Check velocityModel fields (you can expand these checks as needed)
-requiredVMfields = {'x','z','vp','vs','dx','dz','nx','nz'};
-for f = requiredVMfields
-    if ~isfield(velocityModel, f{1})
-        error('leastSquaresMig:MissingVelocityModelField',...
-             'velocityModel.%s is missing.', f{1});
-    end
 end
 
 % Fill param defaults
@@ -71,8 +56,8 @@ if ~isfield(param,'dz'),         param.dz = 1;      end
 if ~isfield(param,'zmax'),       param.zmax = 800;  end
 if ~isfield(param,'plotBinned'), param.plotBinned = true; end
 if ~isfield(param,'binning') || ~isfield(param.binning,'dx')
-    % If binning not given, default to velocityModel.dx
-    param.binning = velocityModel;
+    % If binning not given, default to gridStruct.dx
+    param.binning = gridStruct;
 end
 if ~isfield(param,'itermax'), param.itermax = 20; end
 if ~isfield(param,'mu'),      param.mu = 0.1;     end
@@ -121,14 +106,14 @@ end
 % or if it's a simple local coordinate system, you can handle that as well.
 
 % Unpack some velocity model fields
-x    = velocityModel.x;
-z    = velocityModel.z;
-dx   = velocityModel.dx;
-dz   = velocityModel.dz;
-vp   = velocityModel.vp;
-vs   = velocityModel.vs;
-nx   = velocityModel.nx;
-nz   = velocityModel.nz;
+x    = gridStruct.x;
+z    = gridStruct.z;
+dx   = gridStruct.dx;
+dz   = gridStruct.dz;
+vp   = gridStruct.vp;
+vs   = gridStruct.vs;
+nx   = gridStruct.nx;
+nz   = gridStruct.nz;
 xpad = abs(x(1));  % Horizontal padding if relevant
 
 % If you want to restrict the imaging domain according to zmax:
@@ -216,10 +201,10 @@ end
 raypAll = [gval.TravelInfo];
 avgRayp  = mean([raypAll.rayParam]) / 6371;  % e.g., if rayParam is in s/deg, or s/radius
 % avgBaz   = mean([raypAll.baz]);
-vpSurf   = mean(vp(end,:));  % example: near bottom row or top row, depending
+vpBottom   = mean(vp(end,:));  % example: near bottom row or top row, depending
 
 % Create or define a source wavelet for LSM
-[src, pos, tshift] = rflsm_create_src(dt_samp, nt, avgRayp, incidence_direction, vpSurf, param);
+[src, pos, tshift] = rflsm_create_src(dt_samp, nt, avgRayp, incidence_direction, vpBottom, param);
 % Scale source if needed
 src = src * max(mean(itrMat, 2));
 
