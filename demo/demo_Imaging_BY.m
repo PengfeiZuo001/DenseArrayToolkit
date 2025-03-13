@@ -13,6 +13,7 @@ PreprocessingParam = config.PreprocessingParam;
 MigParam           = config.MigParam;
 RadonParam         = config.RadonParam;
 DeconvParam        = config.DeconvParam;
+CCPParam           = config.CCPParam;
 
 %% 1. 读入数据
 % 读取 dataFolder 中的 SAC 格式地震数据，并封装到 DataStruct 中
@@ -51,14 +52,8 @@ dz = 0.5;
 zmax = 100;
 gridStruct = createGrid(DataStruct, dx, dy, dz, zmax);
 
-ModelParam.LatMin = min(stla)-0.2;
-ModelParam.LatMax = max(stla)+0.2;
-ModelParam.LonMin = min(stlo)-0.2;
-ModelParam.LonMax = max(stlo)+0.2;
-ModelParam.npts = 5;
-
-ModelType = '3D';
-velocityModel = getVelocityModel(ModelType,ModelParam);
+npts = 10;
+gridStruct = getVelocityModel('3D',gridStruct,npts);
 
 %% 5. 计算接收函数
 DataStruct = deconv(DataStruct, DeconvParam);
@@ -90,7 +85,7 @@ for iEvent = 1:length(eventid)
     [gatherReconstructed, d1_otg] = rankReduction(gather, RankReductionParam);
 
     % 调用 CCPCommonEventGather 进行共转换点叠加成像
-    ccpResult = CCPCommonEventGather(gatherReconstructed,velocityModel, gridStruct);
+    ccpResult = CCPCommonEventGather(gatherReconstructed, gridStruct, CCPParam);
     dimg(:,:,:,nMigratedEvents) = ccpResult.img;
     count(:,:,:,nMigratedEvents) = ccpResult.count;
     % 关闭所有图窗，避免在批量处理时生成过多窗口
@@ -105,23 +100,18 @@ end
 X = ccpResult.X;
 Y = ccpResult.Y;
 Z = ccpResult.Z;
-dimg_smooth = [];
-smoothLength = 3;
-for n = 1:size(dimg,4)
-    dimg_smooth(:,:,:,n) = smooth3(squeeze(dimg(:,:,:,n)),'box',smoothLength);
-end
+V = sum(dimg,4)./max(sum(count,4),1);
 
 figure;
 V = mean(dimg,4);
-V_smooth = mean(dimg_smooth,4);
-h = slice(X,Y,Z,V_smooth,90,90,40);
+h = slice(X,Y,Z,V,90,90,40);
 xlabel('X (km)');
 ylabel('Y (km)');
 zlabel('Z (km)');
 set(h(:),'EdgeColor','none')
 set(gca,'ZDir','reverse')
 colormap(flipud(roma));
-cmax = rms(V_smooth(:));
+cmax = rms(V(:));
 caxis([-cmax cmax]);
 
 figure;

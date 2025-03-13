@@ -25,6 +25,7 @@ PreprocessingParam = config.PreprocessingParam;
 MigParam           = config.MigParam;
 RadonParam         = config.RadonParam;
 DeconvParam        = config.DeconvParam;
+CCPParam           = config.CCPParam;
 
 dataFolder = './data/event_waveforms_QBI';
 %% 1. 读入数据
@@ -86,7 +87,7 @@ for iEvent = 1:length(eventid)
     gather = deconv(gather, DeconvParam);
     
     % 调用 CCPCommonEventGather 进行共转换点叠加成像
-    ccpResult = CCPCommonEventGather(gather, gridStruct);
+    ccpResult = CCPCommonEventGather(gather, gridStruct, CCPParam);
     dimg(:,:,:,nMigratedEvents) = ccpResult.img;
     count(:,:,:,nMigratedEvents) = ccpResult.count;
    
@@ -100,19 +101,11 @@ end
 X = ccpResult.X;
 Y = ccpResult.Y;
 Z = ccpResult.Z;
-% 对成像结果做平滑处理
-dimg_smooth = [];
-smoothLength = 3;
-% for n = 1:size(dimg,4)
-%     img = dimg(:,:,:,n)./max(count(:,:,:,n),1);
-%     dimg_smooth(:,:,:,n) = smooth3(img,'box',smoothLength);
-% end
-V_smooth = smooth3(sum(dimg,4)./max(sum(count,4),1),'box',smoothLength);
+V = sum(dimg,4)./max(sum(count,4),1);
 % 绘制切片
 figure;
 set(gcf,'Position',[50 50 800 800],'Color','w')
-% V_smooth = mean(dimg_smooth,4);
-h = slice(X,Y,Z,V_smooth,90,90,40);
+h = slice(X,Y,Z,V,90,90,40);
 xlabel('X (km)');
 ylabel('Y (km)');
 zlabel('Z (km)');

@@ -1,4 +1,4 @@
-function ccpResult = CCPCommonEventGather(gather, gridStruct)
+function ccpResult = CCPCommonEventGather(gather, gridStruct, param)
 % CCPCommonEventGather  Perform Common Conversion Point stacking (CCP) on seismic data.
 %
 % Usage:
@@ -11,6 +11,12 @@ function ccpResult = CCPCommonEventGather(gather, gridStruct)
 %                       .TravelInfo.rayParam, .TravelInfo.baz - Ray parameters
 %                       .TimeAxis.t_resample, .TimeAxis.dt_resample - time axis
 %   gridStruct  : Struct with grid-related info:
+%
+%   param          : CCP parameters:
+%       .imagingType (string) - conduct 2D or 3D imaging
+%       .plotCCP     (bool) - if true, plot CCP results
+%       .smoothLength (int) - if greater than 0, apply smoothing to CCP
+%                             image
 
 %
 % Outputs:
@@ -136,9 +142,9 @@ end
 % Handles both 1D and 3D velocity models differently:
 % - 1D: Simple 2D (distance-depth) stacking
 % - 3D: Full 3D spatial binning with progress tracking
-switch gridStruct.ModelType
+switch param.imagingType
     % project to profile for 2D imaging
-    case '1D'
+    case '2D'
         % Set grid sizes (distance direction: dx, depth direction: dz)
         [X, Z] = meshgrid(gridStruct.x, gridStruct.z);
         nx = length(gridStruct.x);
@@ -147,42 +153,71 @@ switch gridStruct.ModelType
         % Initialize stacking result matrices
         V = zeros(nz, nx); % Store accumulated amplitude values
         count = zeros(nz, nx); % Store sample count for each grid
+        xmin = min(gridStruct.x);
+        dx = gridStruct.dx;
+        
         % Perform parallel processing for speed
-        parfor i = 1:nz
-            for j = 1:nx
-                for n = 1:length(cp)
-                    xi = cp(n).rx;
-                    zi = cp(n).zpos;
-                    vi = cp(n).amp;
-                    keep = xi >= gridStruct.x(j) - 2 * gridStruct.dx & xi <= gridStruct.x(j) + 2 * gridStruct.dx & ...
-                        zi >= gridStruct.z(i) - 2 * gridStruct.dz & zi <= gridStruct.z(i) + 2 * gridStruct.dz;
-                    V(i, j) = V(i, j) + sum(vi(keep));
-                    count(i, j) = count(i, j) + sum(keep);
+%         parfor i = 1:nz
+%             for j = 1:nx
+%                 for n = 1:length(cp)
+%                     xi = cp(n).rx;
+%                     zi = cp(n).zpos;
+%                     vi = cp(n).amp;
+%                     keep = xi >= gridStruct.x(j) - 2 * gridStruct.dx & xi <= gridStruct.x(j) + 2 * gridStruct.dx & ...
+%                         zi >= gridStruct.z(i) - 2 * gridStruct.dz & zi <= gridStruct.z(i) + 2 * gridStruct.dz;
+%                     V(i, j) = V(i, j) + sum(vi(keep));
+%                     count(i, j) = count(i, j) + sum(keep);
+%                 end
+%             end
+%         end
+
+        for n = 1:length(cp)
+            % 2D stacking
+            xx=cp(n).rx;
+            zz=cp(n).zpos;
+            for j=1:length(zz)
+                i=floor((xx(j)-xmin)/dx)+1;
+                % Calculate z-layer index
+                m = floor((zz(j) - gridStruct.z(1)) / gridStruct.dz) + 1;
+                % Validate array indices
+                if i>=1 && i<=nx && m>=1 && m<=nz
+                    amp = cp(n).amp(j);
+                    if ~isnan(amp)
+                        count(m,i) = count(m,i) + 1;
+                        V(m,i) = V(m,i) + amp;
+                    end
                 end
             end
+        end
+
+        if param.smoothLength > 0 
+            K = (1/param.smoothLength^2)*ones(param.smoothLength,param.smoothLength);
+            V = conv2(V,K,'same');
         end
 
         % Generate CCP Image
 %         V = V ./ max(count, 1);  % 避免除以0
 
         %% Plot CCP Image
-        try
-            load roma;
-            cmap = flipud(roma);
-        catch
-            cmap = parula;
+        if param.plotCCP
+            try
+                load roma;
+                cmap = flipud(roma);
+            catch
+                cmap = parula;
+            end
+    
+            figure;
+            set(gcf, 'Position', [100 100 800 400], 'color', 'w');
+            imagesc(gridStruct.x, gridStruct.z, V);
+            caxis([-0.1 0.1]);
+            colormap(cmap);
+            colorbar;
+            xlabel('Distance (km)');
+            ylabel('Depth (km)');
+            title('CCP image');
+            set(gca, 'fontsize', 14);
         end
-
-        figure;
-        set(gcf, 'Position', [100 100 800 400], 'color', 'w');
-        imagesc(gridStruct.x, gridStruct.z, V);
-        caxis([-0.1 0.1]);
-        colormap(cmap);
-        colorbar;
-        xlabel('Distance (km)');
-        ylabel('Depth (km)');
-        title('CCP image');
-        set(gca, 'fontsize', 14);
 
         %% Save CCP results
         ccpResult = struct('X', X, 'Z', Z, 'img', V, 'count', count);
@@ -225,6 +260,10 @@ switch gridStruct.ModelType
                 end
             end
 
+        end
+        % apply smoothing to the CCP image
+        if param.smoothLength > 0
+            V = smooth3(V,'box',param.smoothLength);
         end
         %         V = V./max(count,1);  % Disabled alternative normalization
 

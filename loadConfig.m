@@ -60,6 +60,12 @@ config.MigParam.alpha       = 0.9;   % weight parameter for SSA
 config.MigParam.n_iter      = 20;    % number of iterations for migration
 config.MigParam.gauss       = 2.5;   % Gaussian parameter for migration
 config.MigParam.phaseshift  = 5;     % phase parameter for migration
+config.MigParam.plotMig     = false; % if true, plot migration results
+%% CCP imaging parameters
+config.CCPParam.imagingType = '3D';         % use 2D or 3D imaging, 2D imaging project the result onto the principal axis
+config.CCPParam.plotCCP = false;            % if true, plot CCP results
+config.CCPParam.smoothLength = 3;           % if greater than 0, apply smooth to CCP image
+
 %% 5. Array & event filtering parameters
 config.max_angle_diff  = 15; % max azimuth difference (deg)
 config.profile_length  = 4;  % profile length (degree)

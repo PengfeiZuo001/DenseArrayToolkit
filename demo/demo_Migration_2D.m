@@ -25,7 +25,7 @@ PreprocessingParam = config.PreprocessingParam;
 MigParam           = config.MigParam;
 RadonParam         = config.RadonParam;
 DeconvParam        = config.DeconvParam;
-
+CCPParam           = config.CCPParam;
 %% 1. 读入数据
 % 读取 dataFolder 中的 SAC 格式地震数据，并封装到 DataStruct 中
 DataStruct = read_SAC(dataFolder);
@@ -92,7 +92,9 @@ for iEvent = 1:length(eventid)
     gather = deconv(gather, DeconvParam);
     
     % 调用 CCPCommonEventGather 进行共转换点叠加成像
-    ccpResult = CCPCommonEventGather(gather, gridStruct);
+    CCPParam.imagingType = '2D';
+
+    ccpResult = CCPCommonEventGather(gather, gridStruct, CCPParam);
     dimg(:,:,nMigratedEvents) = ccpResult.img./max(ccpResult.count,1);
 
     % 调用 leastSquaresMig 进行偏移成像

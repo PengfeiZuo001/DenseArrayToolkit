@@ -13,7 +13,6 @@ function [dshift] = rflsm_shift_rfs(d,t,vel,vel_s,src,pos,tshift,param)
 % output:     dshift -- time-shifted receiver functions
 %             
 % August, 2024, Yunfeng Chen, write the function
-global ishot
 
 % parameters for forward propagation
 fpeak = 10.; %not used
@@ -61,28 +60,27 @@ for i=1:nx
     end
 end
 % plot the results
-% figdir = param.figdir;
-fig2=figure;
-set(gcf,'Position',[100 100 1200 600],'Color','w');
-subplot(121)
-imagesc(x,t,Z);
-xlabel('Distance (km)');
-ylabel('Time (sec)');
-title('P wave')
-set(gca,'fontsize',14)
-colorbar
-caxis([-0.2 0.2])
-xlim([0,xmax])
-
-subplot(122)
-imagesc(x,t,dshift);
-xlabel('Distance (km)');
-ylabel('Time (sec)');
-title('Time shifted RF')
-set(gca,'fontsize',14)
-colorbar
-colormap(seismic(3));
-caxis([-0.1 0.1])
-xlim([0,xmax])
-% figname=['rf_tshift.',num2str(ishot),'.png'];
-% export_fig(fig2,fullfile(figdir,figname));
+if param.plotMig
+    figure;
+    set(gcf,'Position',[100 100 1200 600],'Color','w');
+    subplot(121)
+    imagesc(x,t,Z);
+    xlabel('Distance (km)');
+    ylabel('Time (sec)');
+    title('P wave')
+    set(gca,'fontsize',14)
+    colorbar
+    caxis([-0.2 0.2])
+    xlim([0,xmax])
+    
+    subplot(122)
+    imagesc(x,t,dshift);
+    xlabel('Distance (km)');
+    ylabel('Time (sec)');
+    title('Time shifted RF')
+    set(gca,'fontsize',14)
+    colorbar
+    colormap(seismic(3));
+    caxis([-0.1 0.1])
+    xlim([0,xmax])
+end

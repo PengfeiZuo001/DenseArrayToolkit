@@ -25,6 +25,7 @@ PreprocessingParam = config.PreprocessingParam;
 MigParam           = config.MigParam;
 RadonParam         = config.RadonParam;
 DeconvParam        = config.DeconvParam;
+CCPParam           = config.CCPParam;
 
 dataFolder = './data/event_waveforms_QBII';
 %% 1. 读入数据
@@ -58,10 +59,11 @@ dx = 5;
 dy = 5;
 gridStruct = createGrid(DataStruct, dx, dy);
 % 创建或获取速度模型，在后续成像中使用
-velocityModel = getVelocityModel('3D',gridStruct,5);
+gridStruct = getVelocityModel('3D',gridStruct,5);
 %% 5. 偏移成像
 % 准备保存偏移结果的矩阵，这里将所有事件的成像结果进行累积存储
 dimg = [];    % 存储最CCP结果
+count = [];
 nMigratedEvents  = 1;   % 用于计数成功完成成像的事件数
 
 % 遍历所有符合筛选条件的事件
@@ -85,9 +87,10 @@ for iEvent = 1:length(eventid)
     gather = deconv(gather, DeconvParam);
     
     % 调用 CCPCommonEventGather 进行共转换点叠加成像
-    ccpResult = CCPCommonEventGather(gather,velocityModel, gridStruct);
+    ccpResult = CCPCommonEventGather(gather, gridStruct, CCPParam);
     dimg(:,:,:,nMigratedEvents) = ccpResult.img;
-   
+    count(:,:,:,nMigratedEvents) = ccpResult.count;
+
     % 关闭所有图窗，避免在批量处理时生成过多窗口
     close all;
     
@@ -98,25 +101,19 @@ end
 X = ccpResult.X;
 Y = ccpResult.Y;
 Z = ccpResult.Z;
-% 对成像结果做平滑处理
-dimg_smooth = [];
-smoothLength = 3;
-for n = 1:size(dimg,4)
-    dimg_smooth(:,:,:,n) = smooth3(squeeze(dimg(:,:,:,n)),'box',smoothLength);
-end
+V = sum(dimg,4)./max(sum(count,4),1);
+
 % 绘制切片
 figure;
 set(gcf,'Position',[50 50 800 800],'Color','w')
-V = mean(dimg,4);
-V_smooth = mean(dimg_smooth,4);
-h = slice(X,Y,Z,V_smooth,90,90,40);
+h = slice(X,Y,Z,V,90,90,40);
 xlabel('X (km)');
 ylabel('Y (km)');
 zlabel('Z (km)');
 set(h(:),'EdgeColor','none')
 set(gca,'ZDir','reverse')
 colormap(flipud(roma));
-cmax = rms(V_smooth(:));
+cmax = rms(V(:));
 caxis([-cmax cmax]);
 
 % plot user defined profiles
