@@ -36,8 +36,6 @@ config.RadonParam.N2         = 1;        % number of outer loop iterations
 config.RadonParam.plotRadon  = true;    % plot Radon results (true/false)
 
 %% 4. Rank Reduction parameters (Off-the-grid reconstruction)
-config.RankReductionParam.lonmin = 109.000;  % minimum longitude for grid
-config.RankReductionParam.latmin = 41.1667;  % minimum latitude for grid
 config.RankReductionParam.nx=11;   % number of grid points in x-direction
 config.RankReductionParam.ny=14;   % number of grid points in y-direction
 config.RankReductionParam.rank = 5;  % rank for rank reduction
@@ -49,7 +47,7 @@ config.RankReductionParam.K=4;       % parameter K for rank reduction
 config.RankReductionParam.flow=0.1;  % lower frequency bound
 config.RankReductionParam.fhigh=1.2; % upper frequency bound
 config.RankReductionParam.tmax=50;   % maximum time
-
+config.RankReductionParam.plotRankReduction=false; % if true, plot rank reduction result
 %% 5. Migration imaging parameters
 config.MigParam = struct();
 config.MigParam.is_ssa      = 0;     % use SSA method (1) or not (0)

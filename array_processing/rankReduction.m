@@ -1,4 +1,4 @@
-function [gather, d1_otg] = rankReduction(gather, param)
+function [gather, d1_otg] = rankReduction(gather, gridStruct, param)
 % RANKREDUCTION - Do rank reduction (DRR-OTG) on gather data in 3D (time x x-dist x y-dist)
 %
 % Usage:
@@ -35,8 +35,6 @@ function [gather, d1_otg] = rankReduction(gather, param)
 if ~isfield(param,'nx') || ~isfield(param,'ny')
     error('rankReduction:MissingParam','param.nx and param.ny must be specified.');
 end
-if ~isfield(param,'lonmin'), param.lonmin = 0; end
-if ~isfield(param,'latmin'), param.latmin = 0; end
 if ~isfield(param,'flow'),   param.flow   = 0.1; end
 if ~isfield(param,'fhigh'),  param.fhigh  = 1.2; end
 if ~isfield(param,'rank'),   param.rank   = 10; end
@@ -46,6 +44,8 @@ if ~isfield(param,'eps'),    param.eps    = 1e-3; end
 if ~isfield(param,'verb'),   param.verb   = true; end
 if ~isfield(param,'mode'),   param.mode   = 1; end
 if ~isfield(param,'tmax'),   param.tmax   = 30; end
+if ~isfield(param,'plotRankReduction'),   param.plotRankReduction   = false; end
+
 
 %% 1. Get station info
 stationList = getStations(gather);
@@ -55,7 +55,7 @@ stlo = [stationList.stlo]';
 stla = [stationList.stla]';
 
 % transform lat lon to x y (relative to param.lonmin, param.latmin)
-[rx, ry] = latlon2xy(stlo, stla, param.lonmin, param.latmin);
+ [rx, ry] = latlonToProjectedCoords(stlo, stla, gridStruct);
 % shift to ensure min coordinate=0
 rx = rx - min(rx);
 ry = ry - min(ry);
@@ -143,12 +143,9 @@ for k = 1:length(validIdx)
     end
 end
 
-%     figure; imagesc(1:length(gather)*2,t,[d0 d1])
-%     caxis([-0.1 0.1])
-%     colormap(seismic(3))
-%     %%
-%     figure; imagesc(1:2*nx*ny,t,[reshape(d3d,nt,nx*ny) reshape(d1_otg,nt,nx*ny)])
-%     caxis([-0.1 0.1])
-%     colormap(seismic(3))
-
+if param.plotRankReduction
+    figure; imagesc(1:length(gather)*2,t,[d0 d1])
+    caxis([-0.1 0.1])
+    colormap(seismic(3))
+end
 end

@@ -27,12 +27,8 @@ else
 end
 
 % 从 config 中提取常用字段
-if isfield(config, 'dataFolder')
-    dataFolder = config.dataFolder;
-else
-    dataFolder = './data'; % fallback
-end
-
+% dataFolder = config.dataFolder;
+dataFolder = './data/event_waveforms_BY';
 PreprocessingParam = config.PreprocessingParam;
 DeconvParam        = config.DeconvParam;
 RankReductionParam = config.RankReductionParam;
@@ -53,11 +49,16 @@ DataStruct = preprocessing(DataStruct, PreprocessingParam);
 %% 3. 计算接收函数
 % --------------------------------------------------
 fprintf('\n[Step 3] Computing receiver functions (deconvolution)...\n');
+DeconvParam.verbose = false;
 DataStruct = deconv(DataStruct, DeconvParam);
 
 %% 4. 对每个事件做 rank reduction (DRR-OTG) 重建
 % --------------------------------------------------
 fprintf('\n[Step 4] Doing rank reduction (DRR-OTG) for each event...\n');
+
+dx = 10;
+dy = 10;
+gridStruct = createGrid(DataStruct, dx, dy);
 
 eventList = getEvents(DataStruct);  % 例如返回 struct array of event info
 eventIDs  = {eventList.evid};
@@ -77,11 +78,11 @@ for iEvent = 1:length(eventIDs)
 
     % 调用rankReduction对该事件进行3D数据重构
     % gather => [ gather(i).RF.itr ...], gather(i).StationInfo ...
-    [gatherReconstructed, d1_otg] = rankReduction(gather, RankReductionParam);
+    [gatherReconstructed, d1_otg] = rankReduction(gather, gridStruct, RankReductionParam);
 
     % 将结果并入 DataStruct_drr
     DataStruct_drr = [DataStruct_drr; gatherReconstructed(:)];
-
+    pause;
     % 若需要调试/可视化 d1_otg，可在 rankReduction 内部或此处实现
     % close all;  % 如果怕产生过多图窗
 end
