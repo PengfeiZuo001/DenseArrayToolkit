@@ -56,13 +56,11 @@ DataStruct = deconv(DataStruct, DeconvParam);
 % --------------------------------------------------
 fprintf('\n[Step 4] Doing rank reduction (DRR-OTG) for each event...\n');
 
-dx = 10;
-dy = 10;
-gridStruct = createGrid(DataStruct, dx, dy);
+gridStruct = createGrid(DataStruct);
 
 eventList = getEvents(DataStruct);  % 例如返回 struct array of event info
 eventIDs  = {eventList.evid};
-DataStruct_drr = [];  % 存储重建后的结果
+DataStructDRR = [];  % 存储重建后的结果
 
 minStationCount = 50; % 阈值: 若事件台站数小于此数, 则跳过
 
@@ -81,14 +79,14 @@ for iEvent = 1:length(eventIDs)
     [gatherReconstructed, d1_otg] = rankReduction(gather, gridStruct, RankReductionParam);
 
     % 将结果并入 DataStruct_drr
-    DataStruct_drr = [DataStruct_drr; gatherReconstructed(:)];
+    DataStructDRR = [DataStructDRR; gatherReconstructed(:)];
     pause;
     % 若需要调试/可视化 d1_otg，可在 rankReduction 内部或此处实现
     % close all;  % 如果怕产生过多图窗
 end
 
 % 将结果转置回与 DataStruct 类似的形状(若需要)
-DataStruct_drr = DataStruct_drr';
+DataStructDRR = DataStructDRR';
 
 %% 5. 叠加接收函数
 % --------------------------------------------------
@@ -96,7 +94,7 @@ fprintf('\n[Step 5] Stacking receiver functions by station...\n');
 
 % stackCommonStationGather() 假设对同一台站的多个事件进行叠加
 % 输出：seisout => 叠加后数据, depth0 => 深度轴, mohoStruct => 可选莫霍深度
-[seisout, depth0, mohoStruct] = stackCommonStationGather(DataStruct_drr);
+[seisout, depth0, mohoStruct] = stackCommonStationGather(DataStructDRR);
 
 %% 6. 可视化
 % --------------------------------------------------
@@ -104,40 +102,40 @@ fprintf('\n[Step 6] Visualizing some results...\n');
 
 % 6.1 可视化单条记录示例
 trace_index = 100;  
-if trace_index <= length(DataStruct_drr)
-    plotWaveforms(DataStruct_drr, trace_index);
+if trace_index <= length(DataStructDRR)
+    plotWaveforms(DataStructDRR, trace_index);
 else
     warning('trace_index=%d > data length. Skip plotWaveforms.', trace_index);
 end
 
 % 6.2 可视化某一台站的接收函数
-stationStruct = getStations(DataStruct_drr);  % eg. returns struct array .sta, .stlo, .stla
+stationStruct = getStations(DataStructDRR);  % eg. returns struct array .sta, .stlo, .stla
 stationNames  = {stationStruct.sta};
 if ~isempty(stationNames)
     stationToPlot = stationNames{1}; 
-    plotCommonStationGather(DataStruct_drr, stationToPlot);
+    plotCommonStationGather(DataStructDRR, stationToPlot);
 end
 
 % 6.3 批量绘制每个事件的接收函数
-eventForPlot = getEvents(DataStruct_drr);
+eventForPlot = getEvents(DataStructDRR);
 eventIDsPlot = {eventForPlot.evid};
 
 for iEvt = 1:length(eventIDsPlot)
     eID = eventIDsPlot{iEvt};
-    gatherEvt = getCommonEventGather(DataStruct_drr, eID);
+    gatherEvt = getCommonEventGather(DataStructDRR, eID);
     if isempty(gatherEvt)
         continue;
     end
-    plotCommonEventGather(DataStruct_drr, eID, 'trace','wigb');
+    plotCommonEventGather(DataStructDRR, eID, 'trace','wigb');
     outFig = fullfile('./figures',[eID, '.png']);
     export_fig(outFig, '-r150');
     close all;
 end
 
 % 6.4 可视化台站分布
-plotStations(DataStruct_drr, 'Baiyanebo_DEM.mat');
+plotStations(DataStructDRR, 'Baiyanebo_DEM.mat');
 
 % 6.5 可视化事件分布
-plotEvents(DataStruct_drr);
+plotEvents(DataStructDRR);
 
 fprintf('\nDone! All steps completed.\n');
