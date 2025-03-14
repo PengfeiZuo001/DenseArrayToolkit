@@ -14,7 +14,7 @@ function [gather, d1_otg] = rankReduction(gather, gridStruct, param)
 %       .lonmin, .latmin : reference lat/lon for coordinate transform
 %       .nx, .ny         : grid dimensions
 %       .rank            : rank for DRR
-%       .K               : ??? (from your DRR method)
+%       .K               : damping factor (from your DRR method)
 %       .niter           : iteration count
 %       .eps             : small regularization or tolerance
 %       .verb            : verbose mode (bool)
