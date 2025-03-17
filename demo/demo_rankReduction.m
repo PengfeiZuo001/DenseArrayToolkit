@@ -80,9 +80,9 @@ for iEvent = 1:length(eventIDs)
 
     % 将结果并入 DataStruct_drr
     DataStructDRR = [DataStructDRR; gatherReconstructed(:)];
-    pause;
+
     % 若需要调试/可视化 d1_otg，可在 rankReduction 内部或此处实现
-    % close all;  % 如果怕产生过多图窗
+    close all;  % 如果怕产生过多图窗
 end
 
 % 将结果转置回与 DataStruct 类似的形状(若需要)
@@ -95,47 +95,5 @@ fprintf('\n[Step 5] Stacking receiver functions by station...\n');
 % stackCommonStationGather() 假设对同一台站的多个事件进行叠加
 % 输出：seisout => 叠加后数据, depth0 => 深度轴, mohoStruct => 可选莫霍深度
 [seisout, depth0, mohoStruct] = stackCommonStationGather(DataStructDRR);
-
-%% 6. 可视化
-% --------------------------------------------------
-fprintf('\n[Step 6] Visualizing some results...\n');
-
-% 6.1 可视化单条记录示例
-trace_index = 100;  
-if trace_index <= length(DataStructDRR)
-    plotWaveforms(DataStructDRR, trace_index);
-else
-    warning('trace_index=%d > data length. Skip plotWaveforms.', trace_index);
-end
-
-% 6.2 可视化某一台站的接收函数
-stationStruct = getStations(DataStructDRR);  % eg. returns struct array .sta, .stlo, .stla
-stationNames  = {stationStruct.sta};
-if ~isempty(stationNames)
-    stationToPlot = stationNames{1}; 
-    plotCommonStationGather(DataStructDRR, stationToPlot);
-end
-
-% 6.3 批量绘制每个事件的接收函数
-eventForPlot = getEvents(DataStructDRR);
-eventIDsPlot = {eventForPlot.evid};
-
-for iEvt = 1:length(eventIDsPlot)
-    eID = eventIDsPlot{iEvt};
-    gatherEvt = getCommonEventGather(DataStructDRR, eID);
-    if isempty(gatherEvt)
-        continue;
-    end
-    plotCommonEventGather(DataStructDRR, eID, 'trace','wigb');
-    outFig = fullfile('./figures',[eID, '.png']);
-    export_fig(outFig, '-r150');
-    close all;
-end
-
-% 6.4 可视化台站分布
-plotStations(DataStructDRR, 'Baiyanebo_DEM.mat');
-
-% 6.5 可视化事件分布
-plotEvents(DataStructDRR);
 
 fprintf('\nDone! All steps completed.\n');
