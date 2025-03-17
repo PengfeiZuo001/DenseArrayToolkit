@@ -1,39 +1,40 @@
 %% demo_rankReduction.m
-%  本脚本示例了一个完整的地震接收函数计算与 "Rank Reduction" 流程，从读入数据到
-%  计算接收函数、再到多事件重建和叠加，以及最终可视化。主要步骤包括：
-%    0. 设置路径和参数
-%    1. 读入数据
-%    2. 预处理
-%    3. 计算接收函数
-%    4. 对每个事件做 rank reduction (DRR-OTG) 重建
-%    5. 叠加接收函数
-%    6. 可视化结果
+%  This script demonstrates a complete workflow for receiver function computation 
+%  and "Rank Reduction". The process includes reading data, computing receiver 
+%  functions, multi-event reconstruction and stacking, and final visualization.
+%  Main steps include:
+%    0. Setup paths and parameters
+%    1. Read data
+%    2. Preprocessing
+%    3. Compute receiver functions
+%    4. Perform rank reduction (DRR-OTG) for each event
+%    5. Stack receiver functions
 
 clear; clc; close all;
 
-%% 0. 设置路径和参数
+%% 0. Setup paths and parameters
 % --------------------------------------------------
 try
-    setupPaths();  % 添加项目中的工具箱或代码到 MATLAB 路径
+    setupPaths();  % Add project toolboxes or codes to MATLAB path
 catch ME
     warning('setupPaths() not found or failed: %s\nUsing current path instead.', ME.message);
 end
 
-% 加载配置
+% Load configuration
 if exist('loadConfig','file') == 2
     config = loadConfig();
 else
     error('No loadConfig() found. Please implement or provide config structure.');
 end
 
-% 从 config 中提取常用字段
+% Extract commonly used fields from config
 % dataFolder = config.dataFolder;
 dataFolder = './data/event_waveforms_BY';
 PreprocessingParam = config.PreprocessingParam;
 DeconvParam        = config.DeconvParam;
 RankReductionParam = config.RankReductionParam;
 
-%% 1. 读入数据
+%% 1. Read data
 % --------------------------------------------------
 fprintf('\n[Step 1] Reading SAC data from folder: %s\n', dataFolder);
 DataStruct = read_SAC(dataFolder);
@@ -41,28 +42,28 @@ if isempty(DataStruct)
     error('No data read from %s. Check if files exist.', dataFolder);
 end
 
-%% 2. 预处理
+%% 2. Preprocessing
 % --------------------------------------------------
 fprintf('\n[Step 2] Preprocessing data...\n');
 DataStruct = preprocessing(DataStruct, PreprocessingParam);
 
-%% 3. 计算接收函数
+%% 3. Compute receiver functions
 % --------------------------------------------------
 fprintf('\n[Step 3] Computing receiver functions (deconvolution)...\n');
 DeconvParam.verbose = false;
 DataStruct = deconv(DataStruct, DeconvParam);
 
-%% 4. 对每个事件做 rank reduction (DRR-OTG) 重建
+%% 4. Perform rank reduction (DRR-OTG) for each event
 % --------------------------------------------------
 fprintf('\n[Step 4] Doing rank reduction (DRR-OTG) for each event...\n');
 
 gridStruct = createGrid(DataStruct);
 
-eventList = getEvents(DataStruct);  % 例如返回 struct array of event info
+eventList = getEvents(DataStruct);  % Returns struct array of event info
 eventIDs  = {eventList.evid};
-DataStructDRR = [];  % 存储重建后的结果
+DataStructDRR = [];  % Store reconstruction results
 
-minStationCount = 50; % 阈值: 若事件台站数小于此数, 则跳过
+minStationCount = 50; % Threshold: skip if event has fewer stations than this
 
 for iEvent = 1:length(eventIDs)
     evid = eventIDs{iEvent};
@@ -74,26 +75,26 @@ for iEvent = 1:length(eventIDs)
         continue;
     end
 
-    % 调用rankReduction对该事件进行3D数据重构
+    % Call rankReduction for 3D data reconstruction of this event
     % gather => [ gather(i).RF.itr ...], gather(i).StationInfo ...
     [gatherReconstructed, d1_otg] = rankReduction(gather, gridStruct, RankReductionParam);
 
-    % 将结果并入 DataStruct_drr
+    % Merge results into DataStruct_drr
     DataStructDRR = [DataStructDRR; gatherReconstructed(:)];
 
-    % 若需要调试/可视化 d1_otg，可在 rankReduction 内部或此处实现
-    close all;  % 如果怕产生过多图窗
+    % For debugging/visualization of d1_otg, implement here or in rankReduction
+    close all;  % To prevent too many figure windows
 end
 
-% 将结果转置回与 DataStruct 类似的形状(若需要)
+% Transpose results back to DataStruct-like shape (if needed)
 DataStructDRR = DataStructDRR';
 
-%% 5. 叠加接收函数
+%% 5. Stack receiver functions
 % --------------------------------------------------
 fprintf('\n[Step 5] Stacking receiver functions by station...\n');
 
-% stackCommonStationGather() 假设对同一台站的多个事件进行叠加
-% 输出：seisout => 叠加后数据, depth0 => 深度轴, mohoStruct => 可选莫霍深度
+% stackCommonStationGather() assumes stacking multiple events for the same station
+% Output: seisout => stacked data, depth0 => depth axis, mohoStruct => optional Moho depth
 [seisout, depth0, mohoStruct] = stackCommonStationGather(DataStructDRR);
 
 fprintf('\nDone! All steps completed.\n');
