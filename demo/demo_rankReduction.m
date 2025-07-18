@@ -98,3 +98,57 @@ fprintf('\n[Step 5] Stacking receiver functions by station...\n');
 [seisout, depth0, mohoStruct] = stackCommonStationGather(DataStructDRR);
 
 fprintf('\nDone! All steps completed.\n');
+
+%% 6. Structural oriented filter (post-processing)
+% Get station info
+stationList = getStations(DataStructDRR);
+% stationList should have fields .stlo, .stla
+% Flatten stlo, stla to vector if needed
+stlo = [stationList.stlo]';  
+stla = [stationList.stla]';
+
+% transform lat lon to x y (relative to param.lonmin, param.latmin)
+ [rx, ry] = latlonToProjectedCoords(stlo, stla, gridStruct);
+% shift to ensure min coordinate=0
+rx = rx - min(rx);
+ry = ry - min(ry);
+param = RankReductionParam;
+% store for reference
+param.x = rx;  % unregular location 
+param.y = ry;
+
+% Define grid
+param.ox = 0;  % origin x
+param.oy = 0;  % origin y
+param.mx = ceil(max(rx));  % max value of x
+param.my = ceil(max(ry));  % max value of y
+
+
+dt = 0.1;
+
+d0 = seisout;
+[d1_otg, d1] = drr3drecon_otg(...
+    d0, rx, ry, ...
+    param.nx, param.ny, ...
+    param.ox, param.oy, param.mx, param.my, ...
+    param.flow, param.fhigh, dt, ...
+    param.rank, param.K, param.niter, param.eps, ...
+    param.verb, param.mode);
+
+% 3D slope calculation (inline and xline)
+% default parameter values are suitable for most cases
+[dipi,dipx] = str_dip3d(d1_otg);
+
+% Structural smoothing
+r1=2;
+r2=2;
+eps=0.01;
+order=2;
+
+d1_otg_str=str_pwsmooth_lop3d(d1_otg,dipi,dipx,r1,r2,eps,order);
+
+figure;
+subplot(211)
+imagesc(reshape(d1_otg,201,11*14))
+subplot(212)
+imagesc(reshape(d1_otg_str,201,11*14))

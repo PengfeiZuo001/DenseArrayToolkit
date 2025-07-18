@@ -1,124 +1,174 @@
-%% DenseArrayToolkit Migration主函数示例
-% 该脚本演示了从数据读取到成像结果可视化的基本流程。
-% 包含以下主要步骤：
-%   0. 设置路径和参数
-%   1. 读入数据
-%   2. 预处理
-%   3. 获取台阵和事件信息
-%   4. 创建速度模型
-%   5. CCP/偏移成像
-%   6. 可视化
-%   7. 保存结果
+d%% DenseArrayToolkit 2D Migration Main Function Example
+% This script demonstrates a complete workflow for 2D seismic imaging using both
+% Common Conversion Point (CCP) stacking and migration methods. It processes
+% seismic array data to create subsurface images along 2D profiles.
+%
+% Main processing steps include:
+%   0. Setup paths and parameters - Initialize environment and load configurations
+%   1. Read data - Import seismic waveform data in SAC format
+%   2. Preprocessing - Apply filters and prepare data for analysis
+%   3. Get array and event information - Extract metadata and filter by azimuth
+%   4. Create velocity model - Set up 2D velocity structure for migration
+%   5. Migration imaging - Perform CCP stacking and least-squares migration
+%   6. Visualization - Display and compare different imaging results
+%   7. Save results - Store processed data and images
+%
+% This script implements both conventional and least-squares migration approaches
+% alongside CCP stacking for comparative analysis of imaging methods.
 
 clear; clc; close all;
 
-%% 0. 设置路径和参数
-% 调用自定义函数 setupPaths() 来添加依赖包和函数的搜索路径
+%% 0. Setup paths and parameters
+% Initialize the processing environment by adding necessary functions and
+% dependencies to the MATLAB path. This ensures access to all required
+% processing routines in the DenseArrayToolkit.
 setupPaths();
 
-% 加载配置文件中的各种参数（如数据路径、处理参数等）
+% Load configuration file containing essential parameters for data processing,
+% including paths, processing parameters, and imaging settings
 config = loadConfig();
 
-% 使用配置文件中的参数
+% Extract processing parameters from configuration structure
+% - dataFolder: Directory containing seismic data files
+% - PreprocessingParam: Parameters for filtering, windowing, and quality control
+% - MigParam: Parameters controlling migration algorithms
+% - RadonParam: Settings for Radon transform array processing
+% - DeconvParam: Parameters for receiver function deconvolution
+% - CCPParam: Settings for Common Conversion Point stacking
 dataFolder         = config.dataFolder;
 PreprocessingParam = config.PreprocessingParam;
 MigParam           = config.MigParam;
 RadonParam         = config.RadonParam;
 DeconvParam        = config.DeconvParam;
 CCPParam           = config.CCPParam;
-%% 1. 读入数据
-% 读取 dataFolder 中的 SAC 格式地震数据，并封装到 DataStruct 中
+%% 1. Read data
+% Load seismic waveform data in SAC format from the specified directory
+% The data is encapsulated into a structured array (DataStruct) containing
+% waveforms and metadata for each recording
 DataStruct = read_SAC(dataFolder);
 
-%% 2. 预处理
-% 根据配置的预处理参数（如滤波、去均值、切片等）对 DataStruct 进行处理
+%% 2. Preprocessing
+% Apply standard seismic data preprocessing steps defined in PreprocessingParam:
+% - Filtering: Remove unwanted frequency components
+% - Demeaning: Remove DC offset from signals
+% - Time window selection: Extract relevant portion of seismograms
+% - Quality control: Remove noisy or incomplete recordings
 DataStruct = preprocessing(DataStruct, PreprocessingParam);
 
-%% 3. 获取台阵和事件信息
-% 从 DataStruct 中提取台站列表和事件列表
+%% 3. Get array and event information
+% Extract metadata about the seismic array geometry and earthquake sources
+% This information is crucial for:
+% - Spatial analysis and quality control
+% - Azimuthal consistency filtering
+% - Migration path calculations
 stationList = getStations(DataStruct);
 eventList   = getEvents(DataStruct);
 
-% 提取台站和事件的经纬度信息，便于后续一致性筛选
-stlo = [stationList.stlo]';  % 台站经度
-stla = [stationList.stla]';  % 台站纬度
-evla = [eventList.evla]';    % 事件震中纬度
-evlo = [eventList.evlo]';    % 事件震中经度
+% Extract station and event coordinates for spatial analysis and filtering
+stlo = [stationList.stlo]';  % Station longitude
+stla = [stationList.stla]';  % Station latitude
+evla = [eventList.evla]';    % Event epicenter latitude
+evlo = [eventList.evlo]';    % Event epicenter longitude
 
-% 根据 config.max_angle_diff 对事件进行方位角一致性的筛选
+% Filter events based on azimuthal consistency
+% Only keep events within specified maximum azimuth difference (config.max_angle_diff)
+% This ensures 2D approximation validity for the imaging profile
 idxConsistentEQ = filter_earthquakes_by_azimuth(stlo, stla, evlo, evla, config.max_angle_diff);
 
-% 筛选后的事件 ID 列表
+% Create filtered list of event IDs that meet azimuthal criteria
 eventid = {eventList.evid};
 eventid = eventid(idxConsistentEQ);
 
-% 生成事件-台站对应表，便于后续快速索引
+% Generate event-station correspondence table for efficient data access
 EventStationTable = getEventStationTable(DataStruct);
 
-%% 4. 创建速度模型
-% 根据数据和配置文件中的测线长度信息，获取成像剖面的中心和方向等参数
-% profileStruct = getImagingProfile(DataStruct, config.profile_length);
-dx = 5;
-dy = 5;
+%% 4. Create velocity model
+% Set up the imaging grid and velocity model for migration:
+% 1. Define grid spacing in horizontal (dx) and vertical (dy) directions
+% 2. Create imaging grid based on array geometry
+% 3. Generate 1D velocity model for migration
+% Note: Using 1D velocity model for simplified ray tracing in 2D migration
+dx = 5;  % Horizontal grid spacing (km)
+dy = 5;  % Vertical grid spacing (km)
 gridStruct = createGrid(DataStruct, dx, dy);
-% 创建或获取速度模型，在后续偏移成像中使用
+% Create 1D velocity model for migration imaging
 gridStruct = getVelocityModel('1D',gridStruct);
-%% 5. 偏移成像
-% 准备保存偏移结果的矩阵，这里将所有事件的成像结果进行累积存储
-dmig   = [];  % 存储常规偏移结果
-dmigls = [];  % 存储最小二乘偏移结果
-dimg = [];    % 存储最CCP结果
-nMigratedEvents  = 1;   % 用于计数成功完成成像的事件数
+%% 5. Migration imaging
+% Perform both conventional migration and CCP stacking for comparison:
+% - Standard Kirchhoff migration
+% - Least-squares migration for improved resolution
+% - CCP stacking as a reference method
+%
+% Initialize arrays to store results from all events:
+dmig   = [];  % Standard migration results
+dmigls = [];  % Least-squares migration results
+dimg   = [];  % CCP stacking results
+nMigratedEvents = 1;    % Counter for successfully processed events
 
-% 遍历所有符合筛选条件的事件
+% Process each event that meets the azimuthal filtering criteria
 for iEvent = 1:length(eventid)
     evid = eventid{iEvent}; 
-    % 提取当前事件对应的地震记录子集（Common Event Gather）
+    % Extract seismic records for current event (Common Event Gather)
+    % This groups all recordings of the same event across different stations
     gather = getCommonEventGather(DataStruct, evid);
     
-    % 如果该事件的有效台站数小于 50，则跳过，以保证成像质量
+    % Quality control: Skip events with insufficient station coverage
+    % Minimum 50 stations required to ensure reliable imaging results
     if length(gather) < 50
         continue
     end
   
-    % 是否启用 radonfilter，进一步提升信号质量
+    % Optional Radon Transform filtering for enhanced signal quality
+    % This helps suppress noise and improve coherency in the data
     if DeconvParam.radonfilter
-        % 进行拉东变换（RadonTransform）以实现台阵处理
+        % Apply Radon Transform for array-based signal enhancement
         gather = radonTransform(gather, RadonParam);
     end
 
-    % 对数据进行反褶积处理，以获取接收函数
+    % Compute receiver functions through deconvolution
+    % This isolates converted phases from the P-wave coda
     DeconvParam.verbose = false;
     gather = deconv(gather, DeconvParam);
     
-    % 调用 CCPCommonEventGather 进行共转换点叠加成像
-    CCPParam.imagingType = '2D';
-
+    % Perform 2D CCP stacking
+    CCPParam.imagingType = '2D';  % Set imaging mode to 2D
+    % Apply Common Conversion Point stacking
     ccpResult = CCPCommonEventGather(gather, gridStruct, CCPParam);
+    % Normalize CCP image by hit count to account for uneven sampling
     dimg(:,:,nMigratedEvents) = ccpResult.img./max(ccpResult.count,1);
 
-    % 调用 leastSquaresMig 进行偏移成像
+    % Perform least-squares migration
+    % This method provides improved resolution compared to standard migration
     migResult = leastSquaresMig(gather, gridStruct, MigParam);
     
-    % 将本次事件的成像结果累积到 dmig 和 dmigls 中
+    % Store migration results for current event
     dmig(:, :, nMigratedEvents)   = migResult.mig;
     dmigls(:, :, nMigratedEvents) = migResult.migls;
     
-    % 关闭所有图窗，避免在批量处理时生成过多窗口
+    % Clear figure windows to avoid memory issues during batch processing
     close all;
     
     nMigratedEvents = nMigratedEvents + 1;
 end
 
-% 在循环结束后，获取最后一次偏移结果的横坐标 x 和深度坐标 z 用于可视化
-x = migResult.x;
-z = migResult.z;
+% Extract spatial coordinates from final migration result for visualization
+x = migResult.x;    % Horizontal distance coordinate
+z = migResult.z;    % Depth coordinate
 
-%% 6. 可视化
-% 将所有事件的成像结果 dimg / dmig / dmigls 汇总并进行绘图
+%% 6. Visualization
+% Create comparative display of different imaging methods:
+% - CCP stacking results (dimg)
+% - Standard migration results (dmig)
+% - Least-squares migration results (dmigls)
+% This allows direct comparison of the different imaging approaches
 plotCCPMigrationResults(dimg,dmig,dmigls,x,z)
 
-%% 7. 保存结果
-% 将最后一次得到的 migResult（也可以改为需要保存的汇总结果）写入到指定文件中
+%% 7. Save results
+% Store final migration and CCP results to files for future analysis
+% Results include:
+% - Migration results (conventional and least-squares)
+% - CCP stacking results
+% - Grid coordinates and parameters
+% - Processing configuration
 write_MigResult([config.outputFolder,'/migResult.mat'], migResult);
 write_MigResult([config.outputFolder,'/ccpResult.mat'], ccpResult);

@@ -82,7 +82,7 @@ for iEvent = 1:length(eventid)
     % 调用rankReduction对该事件进行3D数据重构
     RankReductionParam = config.RankReductionParam;
     RankReductionParam.rank = 10;
-    [gatherReconstructed, d1_otg] = rankReduction(gather, RankReductionParam);
+    [gatherReconstructed, d1_otg] = rankReduction(gather, gridStruct, RankReductionParam);
 
     % 调用 CCPCommonEventGather 进行共转换点叠加成像
     ccpResult = CCPCommonEventGather(gatherReconstructed, gridStruct, CCPParam);

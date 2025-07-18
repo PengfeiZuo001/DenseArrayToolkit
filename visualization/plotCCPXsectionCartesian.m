@@ -1,5 +1,7 @@
-function plotCCPXsectionCartesian(X,Y,Z,V,gridStruct,profile)
+function [distAll,depthAll,VAll] = plotCCPXsectionCartesian(X,Y,Z,V,gridStruct,profile)
 %% create 2D cross-section
+% function [distAll,depthAll,VAll] = plotCCPXsectionCartesian(X,Y,Z,V,gridStruct,profile)
+
 F = scatteredInterpolant(X(:),Y(:),Z(:),V(:));
 depth0 = 0:0.5:max(Z(:));
 % load colormap
@@ -23,11 +25,12 @@ cmax = rms(V(:));  % 计算色标的最大值
 caxis([-cmax, cmax]);  % 设置波形数据的色标范围
 % colorbar;  % 为波形数据显示colorbar
 
+
 xlabel('X (km)');
 ylabel('Y (km)');
 zlabel('Z (km)');
 set(h(:),'EdgeColor','none')
-set(ax1,'ZDir','reverse','YDir','reverse','FontSize',16)
+set(ax1,'ZDir','reverse','FontSize',16)
 % % 绘制网格点的位置
 % scatter(gridStruct.X(:), gridStruct.Y(:), 10, 'k', 'filled', ...
 %     'DisplayName', 'Grid Points');
@@ -75,7 +78,7 @@ for n = 1:length(profile)
     elevp = interp2(dem.demLon,dem.demLat,dem.demZ,lonp,latp)/1000.;
     elevAll = [elevAll; elevp];
 end
-zlim([-30 100])
+zlim([-50 100])
 distElev = distAll(1,:)';
 
 ax2 = axes('Position', ax1.Position, ...
@@ -96,7 +99,7 @@ set(hdem,'EdgeColor','none','FaceAlpha',0.8)
 zlim([ax1.ZLim])
 xlim([ax1.XLim])
 ylim([ax1.YLim])
-set(ax2,'ZDir','reverse','YDir','reverse','Visible','off')
+set(ax2,'ZDir','reverse','Visible','off')
 
 fig = figure();
 set(gcf,'Position',[50 50 1200 600],'Color','w')
