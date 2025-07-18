@@ -1,4 +1,4 @@
-function [rfshift,src_func] = shiftRFs(rf0,take_off,back_az,gridStruct,param)
+function [rfshift,src_func,mask] = shiftRFs(rf0,take_off,back_az,gridStruct,param)
 
     param = param.paramMig;
 
@@ -12,15 +12,15 @@ function [rfshift,src_func] = shiftRFs(rf0,take_off,back_az,gridStruct,param)
     src_type = param.src_type;
     fpeak = param.fpeak;
 
-    xo = gridStruct.XInOriginalCoord(:);  % 规则网格点在直角坐标系中的投影坐标
+    xo = gridStruct.XInOriginalCoord(:);
     yo = gridStruct.YInOriginalCoord(:);
 
-    x = gridStruct.x;               % 投影坐标中的规则网格点
+    x = gridStruct.x; 
     y = gridStruct.y;
     dx = param.dx;
     dy = param.dy;
 
-    rx = gridStruct.rx(:,1);         % 台站位置在投影坐标中的位置
+    rx = gridStruct.rx(:,1);
     ry = gridStruct.ry(:,2);
     
     isplot = param.plot;
@@ -40,10 +40,8 @@ function [rfshift,src_func] = shiftRFs(rf0,take_off,back_az,gridStruct,param)
     % cross correlate P wave with RF
     rfshift0 = zeros(nt,nx,ny);     % only for plotting
     rfshift = zeros(nt,nx,ny);
-
-    
-    rftmp0 = doBinning(rf0, rx, ry, x, y, dx, dy,1);
-    rftmp = doBinning(rf1, rx, ry, x, y, dx, dy,1);
+    [rftmp0,mask] = doBinning(rf0, rx, ry, x, y,nx,ny, dx, dy);
+    [rftmp,~] = doBinning(rf1, rx, ry, x, y, nx,ny, dx, dy);
 
     %% 
 

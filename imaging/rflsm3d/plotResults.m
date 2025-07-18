@@ -1,4 +1,4 @@
-function plotResults(mig,pre_rfm,lsmig,pre_rflsm,param)
+function plotResults(mig,pre_rfm,lsmig,pre_rflsm,param,mask)
 
     param = param.paramMig;
 % paramters
@@ -6,15 +6,20 @@ function plotResults(mig,pre_rfm,lsmig,pre_rflsm,param)
     y = param.y ;
     z = param.z;
 
-    rx = param.rx(:,1);
-    ry = param.ry(:,2);
-
 %% plot migration images
-    nnx = find(y<105 & y>95,1);    % y axis  km
-    nny = find(x<155 & x>145,1);    % x axis  km
+    yc = (max(y)+min(y))/2;
+    xc = (max(x)+min(x))/2;
+    
+    nnx = find(y < yc + 6 & y > yc - 6,1);    % y axis  km
+    nny = find(x < xc + 5 & x > xc - 5,1);    % x axis  km
 
-    [idx1,~] = find(rx>145 & rx<155,15);
-    [idx2,~] = find(ry>98 & ry<105,15);
+    if isempty(nnx) || isempty(nny)
+        nnx = round(numel(y)/2);
+        nny = round(numel(x)/2);
+    end
+
+    stax = x(mask(:,nnx)==1);
+    stay = y(mask(nny,:)==1);
     
     figure
     set(gcf,'Position',[1,200,1950,700],'Color','white')
@@ -33,7 +38,7 @@ function plotResults(mig,pre_rfm,lsmig,pre_rflsm,param)
     xlabel('X (km)')
     ylabel('Depth (km)')
     hold on
-    scatter(rx(idx2),zeros(1,numel(idx2)),30,'v','filled',...
+    scatter(stax,zeros(1,numel(stax)),30,'v','filled',...
                   'MarkerFaceColor',[1 0 0]);
     
     hold off
@@ -54,7 +59,7 @@ function plotResults(mig,pre_rfm,lsmig,pre_rflsm,param)
     xlabel('X (km)')
     ylabel('Depth (km)')
     hold on
-    scatter(rx(idx2),zeros(1,numel(idx2)),30,'v','filled',...
+    scatter(stax,zeros(1,numel(stax)),30,'v','filled',...
                   'MarkerFaceColor',[1 0 0]);
 
     hold off
@@ -76,7 +81,7 @@ function plotResults(mig,pre_rfm,lsmig,pre_rflsm,param)
     xlabel('Y (km)')
     ylabel('Depth (km)')
     hold on
-    scatter(ry(idx1),zeros(1,numel(idx1)),30,'v','filled',...
+    scatter(stay,zeros(1,numel(stay)),30,'v','filled',...
                   'MarkerFaceColor',[1 0 0]);
     hold off
     text(-15,-12,'(b)','FontSize',20)
@@ -95,7 +100,7 @@ function plotResults(mig,pre_rfm,lsmig,pre_rflsm,param)
     xlabel('Y (km)')
     ylabel('Depth (km)')
     hold on
-    scatter(ry(idx1),zeros(1,numel(idx1)),30,'v','filled',...
+    scatter(stay,zeros(1,numel(stay)),30,'v','filled',...
                   'MarkerFaceColor',[1 0 0]);
     hold off
     text(-15,-12,'(d)','FontSize',20)

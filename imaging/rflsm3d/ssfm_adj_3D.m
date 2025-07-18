@@ -18,8 +18,7 @@ function [dmig] = ssfm_adj_3D(din,dsrc,save_wavefield,param,if_cg)
     fhigh = param.fhigh;
     bc = param.bc;
     isplot = param.plot;
-    
-    
+      
     %% 
     if ~exist('if_cg','var')
       if_cg = 0;
@@ -33,7 +32,6 @@ function [dmig] = ssfm_adj_3D(din,dsrc,save_wavefield,param,if_cg)
     
     dmig = zeros(nz,nx,ny);
     
-    % 频率点数
     nf = 2^nextpow2(nt);
     nsx = 2^nextpow2(nx);
     nsy = 2^nextpow2(ny);
@@ -123,9 +121,6 @@ function [dmig] = ssfm_adj_3D(din,dsrc,save_wavefield,param,if_cg)
         Yl = [yline, yline];
         Zl = [0, max(z)];
         [X,Y,Z] = meshgrid(x,y,z); 
-    
-
-    
         % 
         figure
         slice(X,Y,Z,permute(dmig./max(dmig(:)),[3 2 1]),[xline ],[yline],[]);
@@ -139,15 +134,12 @@ function [dmig] = ssfm_adj_3D(din,dsrc,save_wavefield,param,if_cg)
     
         hold on;
         slice(X,Y,Z,permute(param.vp,[3 2 1]),[xline ],[yline],[]);
-    
-                
-        
+
         pic_num = 1;
         for tt = 81:5:nt-550+1
             swave = reshape(mod_source(:,tt,:,:),nz,nx,ny)./max(mod_source(:));
             rwave = reshape(mod_receiver(:,581 - tt,:,:),nz,nx,ny)./max(mod_receiver(:));
         
-            % 更新slice数据
             figure(1);
             set(gcf,'position',[102,400,1350,300],'color','white');
 

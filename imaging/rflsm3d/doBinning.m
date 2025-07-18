@@ -1,70 +1,56 @@
-function dBinned = doBinning(itrMat, rx, ry, x, y, dx, dy,flag)
-% DOBINNING  Bin trace data (itrMat) along x, using bins centered at xgrid.
-%
-% Inputs:
-%   itrMat  : [Nt x Ntrace], each column is a trace
-%   rx      : [1 x Ntrace], horizontal location of each trace
-%   xgrid   : array of bin centers [1 x nx]
-%   dx      : bin width (km)
-%
-% Output:
-%   dBinned : [Nt x nx], binned (averaged) data
+function [ dout,mask] = doBinning(din,rx,ry, x, y,nx,ny, dx, dy)
 
-    [nt, nTr] = size(itrMat);
-    nx = length(x);
-    ny = length(y);
-    
-    dBinned = zeros(nt, nx, ny);
-    
-    if flag
-        for i = 1:nx
-            for j = 1:ny
-                keepx = rx>=x(i)-dx & rx<=x(i)+dx;
-                keepy = ry>=y(j)-dy & ry<=y(j)+dy;
-                if sum(keepx)>0 && sum(keepy)>0
-        
-                    rfpx = rx(logical(keepx.*keepy));
-                    rfpy = ry(logical(keepx.*keepy));
-        
-                    rftmp = [];
-                    for k = 1:length(rfpx)
-                        a1 = abs(rfpx(k)-rx)<0.1;
-                        a2 = abs(rfpy(k)-ry)<0.1;
-        
-                        nrf = find(rx==rx(logical(a1.*a2)));
-        
-                        rftmp = [rftmp nrf];
-        
-                    end
-        
-                    tmp = mean(itrMat(:,rftmp),2);
-        
-                    dBinned(:,i,j) = tmp;
+% input: 
+%       din: nt*ntraces matrix
+%       rx: x stations coordinates
+%       ry: y stations coordinates
+%       x: x regular grid coordinates
+%       y: y regular grid coordinates
+%       nx: points of x axis
+%       ny: points of y axis
+%       dx: spacing of x
+%       dy: spacing of y
+%
+% note: Stations' coordinates MUST align with each column of din
+
+[n1,n2]=size(din);
+
+dout=zeros(n1,nx,ny);
+mask=ones(nx,ny);
+
+for iy=1:ny
+    for ix=1:nx
+        index=find(rx>=x(ix)-dx/2 & rx<=x(ix)+dx/2 & ry>=y(iy)-dy/2 & ry<=y(iy)+dy/2);
+        n=length(index);
+        if n==1
+            dout(:,ix,iy)=din(:,index);
+        else if n==0
+                mask(ix,iy)=0;
+                dout(:,ix,iy)=zeros(n1,1);
+            end
+            
+            if n>=2
+                if rx(index(1))==x(ix) && ry(index(1))==y(iy)
+                    dout(:,ix,iy)=din(:,index(1));
+                else
+                    % t1=sqrt((x(index(1))-xout(ix))^2+(y(index(1))-yout(iy))^2);
+                    % t2=sqrt((x(index(2))-xout(ix))^2+(y(index(2))-yout(iy))^2);
+                    % dout(:,ix,iy)=(t1*din(:,index(2))+t2*din(:,index(1)))/(t1+t2);
+                    [dist,idx]=sort(sqrt((rx(index)-x(ix)).^2+(ry(index)-y(iy)).^2));
+                    t1 = dist(1);
+                    t2 = dist(2);
+
+                    dout(:,ix,iy)=(t1*din(:,index(idx(2)))+t2*din(:,index(idx(1))))/(t1+t2);
+%                     dout(:,ix)=(t1*din(:,index(2))+t2*din(:,index(1)))/(t1+t2);
                 end
-        
-            end
-        
-        end
-    else
-        [X_grid, Y_grid] = meshgrid(x, y);
-        x_coords = rx;
-        y_coords = ry;
-        F = scatteredInterpolant(x_coords, y_coords, zeros(size(x_coords)), 'linear', 'none');
-  
-        for t = 1:size(itrMat,1)
-
-            current_data = itrMat(t,:);
-            F.Values = current_data(:);
-            interpolated = F(X_grid, Y_grid);
-            dBinned(t, :, :) = permute(interpolated, [2, 1]);
-
-            % 显示进度
-            if mod(t,100) == 0
-                fprintf('已完成 %.1f%% (%d/%d)\n', t/size(itrMat,1)*100, t, size(itrMat,1));
             end
         end
-
-
     end
-
 end
+
+if nargout==4
+    mask=ones(n1,1)*reshape(mask,1,nx*ny);
+    mask=reshape(mask,n1,nx,ny);
+end
+
+return

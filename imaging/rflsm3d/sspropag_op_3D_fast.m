@@ -57,17 +57,17 @@ nsy = 2^nextpow2(ny);
 if nsx == 1
     Kx = 0;
 else
-    Kx = 2*pi/(dx*nsx)*[0:(nsx/2-1),-(nsx/2):-1];          % x波数
+    Kx = 2*pi/(dx*nsx)*[0:(nsx/2-1),-(nsx/2):-1]; 
 end
 if nsy == 1
     Ky = 0;
 else
-    Ky = 2*pi/(dy*nsy)*[0:(nsy/2-1),-(nsy/2):-1];          % y波数
+    Ky = 2*pi/(dy*nsy)*[0:(nsy/2-1),-(nsy/2):-1]; 
 end
 
-%% 矢量化波数网格
-[KX, KY] = meshgrid(Kx, Ky); % 注意meshgrid顺序
-KX = KX'; KY = KY'; % 保持与原代码一致的维度
+
+[KX, KY] = meshgrid(Kx, Ky); 
+KX = KX'; KY = KY';
 
 %% ---------------------------------------------------------------%
 if save_wavefield
@@ -80,27 +80,27 @@ if iflag == -1
     % in: fx domain
     M0_old = fft2(in,nsx,nsy);
     wavf = zeros(nz,nx,ny);
-    % 每一层计算
+
     for iz = 1:nz
-        % 矢量化计算相移算子
+
         arg = w^2/vavg(iz)^2 - KX.^2 - KY.^2;
         S0 = zeros(nsx,nsy);
         pos_mask = arg >= 0;
         S0(pos_mask) = exp(1i*sqrt(arg(pos_mask))*dz);
         S0(~pos_mask) = exp(-1*sqrt(-arg(~pos_mask))*abs(dz));
-        % 频率-波数域 * 相移算子
+
         M0 = M0_old.*S0;
-        % 转换到 频率-空间域
+
         P0 = ifft2(M0,nsx,nsy);
-        % 频率-空间域 * 时移算子
+
         C0 = exp(1i*w*dz * reshape(du(iz,:,:),nx,ny));
         P1 = P0(1:nx,1:ny).*C0;
-        % 边界条件
-        P1 = P1.* we;        % z+1 层的 频率-空间域
-        % 输出数据
+
+        P1 = P1.* we;        % z+1
+
         wavf(iz,:,:) = P1; 
-        % 下一次循环迭代
-        M0_old = fft2(P1,nsx,nsy);          % 频率-波数域
+
+        M0_old = fft2(P1,nsx,nsy);
         if save_wavefield
             wavf_full(iz,:,:) = M0_old;
         end        
@@ -122,7 +122,7 @@ if iflag == 1
     end
 
     for iz = nz:-1:1
-        % 矢量化计算相移算子
+
         arg = w^2/vavg(iz)^2 - KX.^2 - KY.^2;
         S0 = zeros(nsx,nsy);
         pos_mask = arg >= 0;
@@ -133,7 +133,7 @@ if iflag == 1
             case 'source'
                 if iz == nz
                     mfk_old = mfk;    % (kx,ky) domain, initial condition at the bottom of the model
-                    % 修正：底层也要输出波场
+
                     P0 = ifft2(mfk_old,nsx,nsy);
                     C0 = exp(-1i*w*(dz) * reshape((du(iz,:,:)),nx,ny)); 
                     P1 = P0(1:nx,1:ny).*C0;

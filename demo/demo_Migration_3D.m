@@ -56,7 +56,6 @@ nMigratedEvents  = 1;   % 用于计数成功完成成像的事件数
 
 %%  
 MigParam.paramMig = setMigParam3D(gridStruct);
-
 % 遍历所有符合筛选条件的事件
 for iEvent = 1:length(eventid)
     evid = eventid{iEvent}; 
@@ -67,7 +66,6 @@ for iEvent = 1:length(eventid)
     if length(gather) < 50
         continue
     end
-  
     % 对数据进行反褶积处理，以获取接收函数
     DeconvParam.verbose = false;
     gather = deconv(gather, DeconvParam);

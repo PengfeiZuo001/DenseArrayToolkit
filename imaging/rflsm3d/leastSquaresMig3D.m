@@ -76,7 +76,7 @@ back_azimuth = mean([raypAll.baz]);
 disp(['Event: Baz ', num2str(back_azimuth),', Inc: ',num2str(take_off)])
 disp('---------------------------------------------------------------')
 %% shift RF
-[rfshift,src_func] = shiftRFs(itrMat,take_off,back_azimuth,gridStruct,param);
+[rfshift,src_func,mask] = shiftRFs(itrMat,take_off,back_azimuth,gridStruct,param);
 
 %% migration
 save_wavefield = 0;
@@ -96,7 +96,7 @@ MigResult.migls = lsmig;
 %% ------------------------------------------------------------------------
 %  (9) Plot migration results
 if param.paramMig.plot
-    plotResults(mig,pre_rfm,lsmig,pre_rflsm,param);
+    plotResults(mig,pre_rfm,lsmig,pre_rflsm,param,mask);
 end
 
 end

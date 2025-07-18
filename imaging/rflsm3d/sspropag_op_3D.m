@@ -58,12 +58,12 @@ nsy = 2^nextpow2(ny);
 if nsx == 1
     Kx = 0;
 else
-    Kx = 2*pi/(dx*nsx)*[0:(nsx/2-1),-(nsx/2):-1];          % x波数
+    Kx = 2*pi/(dx*nsx)*[0:(nsx/2-1),-(nsx/2):-1]; 
 end
 if nsy == 1
     Ky = 0;
 else
-    Ky = 2*pi/(dy*nsy)*[0:(nsy/2-1),-(nsy/2):-1];          % y波数
+    Ky = 2*pi/(dy*nsy)*[0:(nsy/2-1),-(nsy/2):-1];
 end
 %% ---------------------------------------------------------------%
 if save_wavefield
@@ -76,36 +76,35 @@ if iflag == -1
     % in: fx domain
     M0_old = fft2(in,nsx,nsy);
     wavf = zeros(nz,nx,ny);
-    % 每一层计算
+
     for iz = 1:nz
-        % 计算相移算子
+
         S0 = zeros(nsx,nsy);
         for ikx = 1:nsx
             for iky = 1:nsy
-            % 参考垂直波数  K_z0
+
                 arg = w^2/vavg(iz)^2 - Kx(ikx)^2- Ky(iky)^2;    
                 
                 if arg >= 0
-                    S0(ikx,iky) = exp(1i*(sqrt(arg))*dz);         % 相移算子
+                    S0(ikx,iky) = exp(1i*(sqrt(arg))*dz); 
                 else
                     S0(ikx,iky) = exp(-1*(sqrt(-arg))*abs(dz));
                 end
             end
         end
-        % 频率-波数域 * 相移算子
+
         M0 = M0_old.*S0;
-        % 转换到 频率-空间域
         P0 = ifft2(M0,nsx,nsy);
-        % 频率-空间域 * 时移算子
+
         C0 = exp(1i*w*dz * reshape(du(iz,:,:),nx,ny));
 
         P1 = P0(1:nx,1:ny).*C0;
-        % 边界条件
-        P1 = P1.* we;        % z+1 层的 频率-空间域
-        % 输出数据
+ 
+        P1 = P1.* we;        % z+1 
+
         wavf(iz,:,:) = P1; 
-        % 下一次循环迭代
-        M0_old = fft2(P1,nsx,nsy);          % 频率-波数域
+
+        M0_old = fft2(P1,nsx,nsy); 
         
         if save_wavefield
             % surface
