@@ -110,6 +110,9 @@ nMigratedEvents = 1;    % Counter for successfully processed events
 % Set up 3D migration parameters based on grid structure
 MigParam.paramMig = setMigParam3D(gridStruct);
 
+minTrace = 100; % Minimum number of traces required for CCP imaging
+minSNR = 5;    % Minimum SNR of the RF required for CCP imaging
+
 % Process each event in the dataset
 for iEvent = 1:length(eventid)
     evid = eventid{iEvent}; 
@@ -117,10 +120,11 @@ for iEvent = 1:length(eventid)
     % Extract seismic records for current event (Common Event Gather)
     % This groups all recordings of the same event across different stations
     gather = getCommonEventGather(DataStruct, evid);
-    
+    % Extract the SNR
+    snrAll = cell2mat(cellfun(@(rf) rf.snr, {gather.RF}, 'UniformOutput', false));    
     % Quality control: Skip events with insufficient station coverage
-    % Minimum 50 stations required to ensure reliable 3D imaging results
-    if length(gather) < 50
+    % Minimum minTrace stations required to ensure reliable 3D imaging results
+    if length(gather) < minTrace || mean(snrAll)< minSNR
         continue
     end
     
