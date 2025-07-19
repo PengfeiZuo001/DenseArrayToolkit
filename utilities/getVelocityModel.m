@@ -1,4 +1,4 @@
-function gridStruct = getVelocityModel(ModelType, gridStruct, npts)
+function gridStruct = getVelocityModel(ModelType, gridStruct)
 %GETVELOCITYMODEL Generate velocity model based on specified type and parameters
 %
 % Inputs:
@@ -54,9 +54,12 @@ switch ModelType
         LonMin = gridStruct.LonMin;
         LonMax = gridStruct.LonMax;
 
+        ynpts = 4;
+        xnpts = 5;
+
         % Get AK135 reference model
         [z, rho, vp, vs, qk, qm] = ak135('cont');
-        zmax = 800;
+        zmax = 100;  % ccp 800km
         dz = 0.5;
 
         % Initialize arrays for storing 3D model data
@@ -64,14 +67,17 @@ switch ModelType
         knode = 0;
         
         % Create lat/lon grid for interpolation
-        latall = linspace(LatMin, LatMax, npts);
-        lonall = linspace(LonMin, LonMax, npts);
+        latall = linspace(LatMin, LatMax, ynpts);
+        lonall = linspace(LonMin, LonMax, xnpts);
+
+        vpgrid = zeros(zmax/dz,xnpts,ynpts);
+        vsgrid = zeros(zmax/dz,xnpts,ynpts);
         
         % Loop through each grid point to build 3D model
         for i = 1:length(latall)
             for j = 1:length(lonall)
                 knode = knode + 1;
-                disp(['Processing node ', num2str(knode), ' of ', num2str(npts^2)]);
+                disp(['Processing node ', num2str(knode), ' of ', num2str(xnpts*ynpts)]);
                 
                 % Get velocity model at current location
                 lat = latall(i);
@@ -109,6 +115,10 @@ switch ModelType
                 Y = [Y; ones(size(vptemp'))*lat];
                 VP = [VP; vptemp'];
                 VS = [VS; vstemp'];
+                
+                vpgrid(:,j,i) = vptemp;
+                vsgrid(:,j,i) = vstemp;
+
             end
         end
 
@@ -117,10 +127,45 @@ switch ModelType
         Fvs = scatteredInterpolant(X, Y, Z, VS);
 
         % Compute velocities at grid points
-        [X, Y, Z] = meshgrid(gridStruct.x, gridStruct.y, gridStruct.z);
-        gridStruct.VP = Fvp(X,Y,Z);
-        gridStruct.VS = Fvs(X,Y,Z);
+        % [X, Y, Z] = meshgrid(gridStruct.x, gridStruct.y, gridStruct.z);
+        % gridStruct.VP = Fvp(X,Y,Z);
+        % gridStruct.VS = Fvs(X,Y,Z);
         gridStruct.Fvp = Fvp;
         gridStruct.Fvs = Fvs;
+
+        % at grids 
+        [Xg, Yg] = latlon2xy(X, Y, gridStruct.originLon, gridStruct.originLat);
+        coords = [Xg(:), Yg(:)];
+        coeff = gridStruct.coeff;
+
+        principal_axis = coeff(:,1);  
+        secondaryAxis = coeff(:,2); 
+
+
+        projection_on_principal_axis = coords * principal_axis;
+        projection_on_secondary_axis = coords * secondaryAxis;
+
+        vgrid1 = [projection_on_principal_axis,zeros(size(projection_on_principal_axis))];
+        vgrid2 = [zeros(size(projection_on_secondary_axis)),projection_on_secondary_axis];
+
+        %% 
+        F1 = scatteredInterpolant(vgrid1(:,1), vgrid2(:,2), Z, Fvp.Values);
+        F2 = scatteredInterpolant(vgrid1(:,1), vgrid2(:,2), Z, Fvs.Values);
+
+        xq = repmat(gridStruct.x,gridStruct.nz,1);
+        xq = xq(:);
+        xq = repmat(xq,gridStruct.ny,1);
+
+        yq = repmat(gridStruct.y,gridStruct.nz*gridStruct.nx,1);
+        yq = yq(:);
+        zq = repmat(gridStruct.z',gridStruct.nx*gridStruct.ny,1);
+
+        v1 = F1(xq,yq,zq);
+        v2 = F2(xq,yq,zq);
+        
+        gridStruct.VP = reshape(v1,gridStruct.nz,gridStruct.nx,gridStruct.ny);
+        gridStruct.VS = reshape(v2,gridStruct.nz,gridStruct.nx,gridStruct.ny);
+
+
 end
 end

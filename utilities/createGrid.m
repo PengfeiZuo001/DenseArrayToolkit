@@ -106,7 +106,6 @@ x_max = round(max(projection_on_principal_axis)/dx)*dx+xpad;
 y_min = min(projection_on_secondary_axis)-ypad;
 y_max = round(max(projection_on_secondary_axis)/dy)*dy+ypad;
 
-
 % 创建网格
 nx = floor((x_max - x_min) / dx) + 1;
 ny = floor((y_max - y_min) / dy) + 1;
