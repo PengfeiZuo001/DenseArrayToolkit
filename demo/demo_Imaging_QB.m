@@ -199,6 +199,7 @@ profilePoints = [
 93.599	38.782
 93.994	38.681
 95.53531 39.21347];
+% coordinates conversion from lat, lon to the projected coordinate
 [xpoints,ypoints] = latlonToProjectedCoords(profilePoints(:,1), profilePoints(:,2), gridStruct);
 
 plot(xpoints, ypoints, 'ro', 'MarkerSize', 10, 'LineWidth', 2);
