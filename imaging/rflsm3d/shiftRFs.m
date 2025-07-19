@@ -44,22 +44,22 @@ function [rfshift,src_func,mask] = shiftRFs(rf0,take_off,back_az,gridStruct,para
     [rftmp,~] = doBinning(rf1, rx, ry, x, y, nx,ny, dx, dy);
 
     %% 
-
+    tdelayAll = zeros(nx,ny);
     it = (0:nt-1)*dt;
     for i = 1:nx
         for j = 1:ny
             sig1 = src_func;
             sig2 = mod_source(:,i,j);
         
-            % cross-correlation
-            % xc=xcorr(sig2,sig1);
-            % tax = [-(nt-1):(nt-1)]*dt;
-            % [~,ind]=max(xc);
-            % tdelay = tax(ind);
-    
+%             % cross-correlation
+%             xc=xcorr(sig2,sig1);
+%             tax = [-(nt-1):(nt-1)]*dt;
+%             [~,ind]=max(xc);
+%             tdelay = tax(ind);
+%     
             % phase only cross correlation
             [tdelay, ~, ~] = phase_only_correlation_simple(sig1, sig2, dt);
-    
+            tdelayAll(i,j) = tdelay;
             % shift receiver function which locate at the regular grid
             rfshift0(:,i,j) = fftShift(rftmp0(:,i,j),it,tdelay);
             rfshift(:,i,j) = fftShift(rftmp(:,i,j),it,tdelay);

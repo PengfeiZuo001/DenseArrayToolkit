@@ -7,7 +7,8 @@ depth0 = 0:0.5:max(Z(:));
 % load colormap
 cmap = load('./visualization/colormap/roma.mat');
 % load DEM
-dem = load('./visualization/Qaidam_DEM.mat');
+% dem = load('./visualization/Qaidam_DEM.mat');
+dem = load('./visualization/Baiyanebo_DEM_small.mat');
 demX = X(:,:,1);
 demY = Y(:,:,1);
 [nx,ny] = size(demX);
@@ -45,6 +46,9 @@ for n = 1:length(profile)
     y1 = profile{n}(1,2);
     x2 = profile{n}(2,1);
     y2 = profile{n}(2,2);
+    if x1 == x2
+        x2 = x1+1e-5;
+    end
     l = (y2-y1)/(x2-x1);
     npoints = 100;
     xp = linspace(x1,x2,npoints)';
@@ -63,7 +67,8 @@ for n = 1:length(profile)
 
     colormap(flipud(cmap.roma))
     cmax = rms(Vprofile(:));
-    caxis([-cmax,cmax]);
+%     caxis([-cmax,cmax]);
+    caxis([-0.1 0.1])
     
     grid on; box on;
     view(140,20)
@@ -85,7 +90,6 @@ ax2 = axes('Position', ax1.Position, ...
            'Color', 'none', ...       % 背景透明
            'XTick', [], 'YTick', [], 'ZTick', [], ...
            'View', ax1.View); % 隐藏坐标刻度
-linkaxes([ax1,ax2])
 demZ = -30*demZ/max(demZ(:));
 hdem = surface(ax2,demX,demY,demZ); hold on;
 % extract station elevation
@@ -100,24 +104,27 @@ zlim([ax1.ZLim])
 xlim([ax1.XLim])
 ylim([ax1.YLim])
 set(ax2,'ZDir','reverse','Visible','off')
+linkaxes([ax1,ax2])
 
-fig = figure();
-set(gcf,'Position',[50 50 1200 600],'Color','w')
-subplot(511,'Parent',fig)
-plot(distElev,elevAll,'k','linewidth',2);
-patch([distElev(1);distElev;distElev(end)],[0;elevAll;0],[0.8 0.8 0.8]);
-ylabel('Elev. (km)')
-xlim([0 max(distAll(1,:))]);
-set(gca,'fontsize',14)
-ylim([1 6]);
-subplot(5,1,2:5,'Parent',fig);
-h = pcolor(distAll,depthAll,VAll);
-ylim([0 100]);
-colormap(flipud(cmap.roma))
-cmax = rms(VAll(:));
-caxis([-cmax,cmax]);
-set(h,'EdgeColor','none')
-axis ij
-xlabel('Distance (km)')
-ylabel('Depth (km)')
-set(gca,'fontsize',14)
+
+% fig = figure();
+% set(gcf,'Position',[50 50 1200 600],'Color','w')
+% subplot(511,'Parent',fig)
+% plot(distElev,elevAll,'k','linewidth',2);
+% patch([distElev(1);distElev;distElev(end)],[0;elevAll;0],[0.8 0.8 0.8]);
+% ylabel('Elev. (km)')
+% xlim([0 max(distAll(1,:))]);
+% set(gca,'fontsize',14)
+% % ylim([1 6]);
+% ylim([0 3]);
+% subplot(5,1,2:5,'Parent',fig);
+% h = pcolor(distAll,depthAll,VAll);
+% ylim([0 100]);
+% colormap(flipud(cmap.roma))
+% cmax = rms(VAll(:));
+% caxis([-cmax,cmax]);
+% set(h,'EdgeColor','none')
+% axis ij
+% xlabel('Distance (km)')
+% ylabel('Depth (km)')
+% set(gca,'fontsize',14)

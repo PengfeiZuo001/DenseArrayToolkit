@@ -110,7 +110,7 @@ function [dmig] = ssfm_adj_3D(din,dsrc,save_wavefield,param,if_cg)
     
     
     if isplot && save_wavefield
-        load('./matfiles/roma.mat');
+        load('roma.mat');
         xline = 150;
         yline = 100;
         rxmin = min(rx);

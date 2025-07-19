@@ -1,86 +1,178 @@
+%% DenseArrayToolkit 3D Migration Main Function Example
+% This script demonstrates a complete workflow for 3D seismic imaging using
+% least-squares migration methods. It processes seismic array data to create
+% volumetric subsurface images in 3D space.
+%
+% Main processing steps include:
+%   0. Setup paths and parameters - Initialize environment and load configurations
+%   1. Read data - Import seismic waveform data in SAC format
+%   2. Preprocessing - Apply filters and prepare data for analysis
+%   3. Get array and event information - Extract metadata for 3D processing
+%   4. Create velocity model - Set up 3D velocity structure for migration
+%   5. Migration imaging - Perform 3D least-squares migration
+%   6. Save results - Store processed 3D imaging results
+%
+% This script implements 3D least-squares migration with rank reduction
+% preprocessing for improved imaging quality in dense array applications.
 
 clear; clc; close all;
 
-%% 0. 设置路径和参数
-cd ../
+%% 0. Setup paths and parameters
+% Initialize the processing environment by adding necessary functions and
+% dependencies to the MATLAB path. This ensures access to all required
+% processing routines in the DenseArrayToolkit.
 setupPaths();
+
+% Load configuration file containing essential parameters for data processing,
+% including paths, processing parameters, and imaging settings
 config = loadConfig();
 
-% 使用配置文件中的参数
+% Extract processing parameters from configuration structure
+% - dataFolder: Directory containing seismic data files
+% - PreprocessingParam: Parameters for filtering, windowing, and quality control
+% - MigParam: Parameters controlling migration algorithms
+% - RadonParam: Settings for Radon transform array processing
+% - DeconvParam: Parameters for receiver function deconvolution
+% - CCPParam: Settings for Common Conversion Point stacking
+% - RankReductionParam: Parameters for rank reduction preprocessing
 dataFolder         = config.dataFolder;
 PreprocessingParam = config.PreprocessingParam;
 MigParam           = config.MigParam;
 RadonParam         = config.RadonParam;
 DeconvParam        = config.DeconvParam;
 CCPParam           = config.CCPParam;
-%% 1. 读入数据
-% 读取 dataFolder 中的 SAC 格式地震数据，并封装到 DataStruct 中
+RankReductionParam = config.RankReductionParam;
+
+%% 1. Read data
+% Load seismic waveform data in SAC format from the specified directory
+% The data is encapsulated into a structured array (DataStruct) containing
+% waveforms and metadata for each recording
 DataStruct = read_SAC(dataFolder);
 
-%% 2. 预处理
-% 根据配置的预处理参数（如滤波、去均值、切片等）对 DataStruct 进行处理
+%% 2. Preprocessing
+% Apply standard seismic data preprocessing steps defined in PreprocessingParam:
+% - Filtering: Remove unwanted frequency components
+% - Demeaning: Remove DC offset from signals
+% - Time window selection: Extract relevant portion of seismograms
+% - Quality control: Remove noisy or incomplete recordings
 DataStruct = preprocessing(DataStruct, PreprocessingParam);
 
-%% 3. 获取台阵和事件信息
-% 从 DataStruct 中提取台站列表和事件列表
+%% 3. Get array and event information
+% Extract metadata about the seismic array geometry and earthquake sources
+% This information is crucial for:
+% - Spatial analysis and quality control
+% - 3D migration volume definition
+% - Processing optimization for dense arrays
 stationList = getStations(DataStruct);
 eventList   = getEvents(DataStruct);
 
-% 提取台站和事件的经纬度信息，便于后续一致性筛选
-stlo = [stationList.stlo]';  % 台站经度
-stla = [stationList.stla]';  % 台站纬度
-evla = [eventList.evla]';    % 事件震中纬度
-evlo = [eventList.evlo]';    % 事件震中经度
+% Extract station and event coordinates for spatial analysis
+stlo = [stationList.stlo]';  % Station longitude
+stla = [stationList.stla]';  % Station latitude
+evla = [eventList.evla]';    % Event epicenter latitude
+evlo = [eventList.evlo]';    % Event epicenter longitude
 
-% 筛选后的事件 ID 列表
+% Create filtered list of event IDs for processing
 eventid = {eventList.evid};
 
-% 生成事件-台站对应表，便于后续快速索引
+% Generate event-station correspondence table for efficient data access
 EventStationTable = getEventStationTable(DataStruct);
 
-%% 4. 创建速度模型
-% 根据数据和配置文件中的测线长度信息，获取成像剖面的中心和方向等参数
-% profileStruct = getImagingProfile(DataStruct, config.profile_length);
-dx = 10;
-dy = 10;
-dz = 1;
-zmax = 100;
-gridStruct = createGrid(DataStruct, dx, dy, dz, zmax);
-% 创建或获取速度模型，在后续偏移成像中使用
-gridStruct = getVelocityModel('3D',gridStruct);
+%% 4. Create velocity model
+% Set up the 3D imaging grid and velocity model for migration:
+% 1. Define grid spacing in x, y, and z directions
+% 2. Create 3D imaging volume based on array geometry
+% 3. Generate 3D velocity model for migration
+% Note: Using 3D velocity model for accurate ray tracing in volumetric imaging
+dx = 5;    % Horizontal x-direction grid spacing (km)
+dy = 5;    % Horizontal y-direction grid spacing (km)
+dz = 2;     % Vertical grid spacing (km)
+zmax = 100; % Maximum imaging depth (km)
+xpad = 50;  % Horizontal padding in x-direction (km)
+ypad = 50;  % Horizontal padding in y-direction (km)
 
-%% 5. 偏移成像
-% 准备保存偏移结果的矩阵，这里将所有事件的成像结果进行累积存储
-mig = struct();
-nMigratedEvents  = 1;   % 用于计数成功完成成像的事件数
+% Create 3D imaging grid with specified parameters
+gridStruct = createGrid(DataStruct, dx, dy, dz, zmax, xpad, ypad);
 
-%%  
+% Create 3D velocity model for migration imaging
+gridStruct = getVelocityModel('3D', gridStruct);
+
+%% 5. Migration imaging
+% Perform 3D least-squares migration with rank reduction preprocessing:
+% - Standard 3D migration
+% - 3D least-squares migration for improved resolution
+% - Rank reduction preprocessing for noise suppression
+%
+% Initialize structure to store migration results from all events
+mig = [];
+nMigratedEvents = 1;    % Counter for successfully processed events
+
+% Set up 3D migration parameters based on grid structure
 MigParam.paramMig = setMigParam3D(gridStruct);
-% 遍历所有符合筛选条件的事件
+
+% Process each event in the dataset
 for iEvent = 1:length(eventid)
     evid = eventid{iEvent}; 
-    % 提取当前事件对应的地震记录子集（Common Event Gather）
+    
+    % Extract seismic records for current event (Common Event Gather)
+    % This groups all recordings of the same event across different stations
     gather = getCommonEventGather(DataStruct, evid);
     
-    % 如果该事件的有效台站数小于 50，则跳过，以保证成像质量
+    % Quality control: Skip events with insufficient station coverage
+    % Minimum 50 stations required to ensure reliable 3D imaging results
     if length(gather) < 50
         continue
     end
-    % 对数据进行反褶积处理，以获取接收函数
+    
+    % Compute receiver functions through deconvolution
+    % This isolates converted phases from the P-wave coda
     DeconvParam.verbose = false;
     gather = deconv(gather, DeconvParam);
+
+    % Apply rank reduction preprocessing to improve signal quality
+    % This helps suppress noise and enhance coherent signals
+    RankReductionParam.rank = 10;
+    [gatherReconstructed, d1_otg] = rankReduction(gather, gridStruct, RankReductionParam);
+
+    % Perform 3D least-squares migration
+    % This method provides improved resolution compared to standard migration
+    migResult = leastSquaresMig3D(gatherReconstructed, gridStruct, MigParam);
+
+    % Store migration results for current event
+    % mig - Standard 3D migration results
+    % migls - 3D least-squares migration results
+    mig = [mig; migResult];
     
-    % 调用 leastSquaresMig 进行偏移成像
-    migResult = leastSquaresMig3D(gather, gridStruct, MigParam);
+    % Pause for visualization (can be removed for batch processing)
+%     pause;
     
-    % 将本次事件的成像结果累积到 dmig 和 dmigls 中
-    mig(nMigratedEvents).mig   = migResult.mig;
-    mig(nMigratedEvents).migls = migResult.migls;
-    
-    % 关闭所有图窗，避免在批量处理时生成过多窗口
+    % Close all figure windows to avoid memory issues during batch processing
     close all;
-    
     nMigratedEvents = nMigratedEvents + 1;
 end
+%% 6. Visualization
+V = zeros(size(mig(1).mig));
+for n=1:length(mig)
+    V = V+mig(n).migls;
+end
+V = V/length(mig);
+V = permute(V,[3,2,1]);
+X = mig.X;
+Y = mig.Y;
+Z = mig.Z;
 
-
+migResult.V = V;
+% Configure visualization options
+options = struct();
+options.profileType = 'predefined';  % Enable interactive profile selection
+options.smoothingParams = struct(...
+    'radius', 3, ...        % Smoothing radius
+    'eps', 0.01, ...       % Regularization parameter
+    'order', 2);           % Smoothing order
+% N-S profile crossing Baiyan Obo minning area
+% options.profilePoints(:,1) = [76.6927; 76.6927];
+% options.profilePoints(:,2) = [0; 150];
+% E-W profile crossing Baiyan Obo minning area
+options.profilePoints(:,1) = [0; 200];
+options.profilePoints(:,2) = [66.9016; 66.9016];
+[profileStruct] = visualizeCCPResults(migResult, gridStruct, options);

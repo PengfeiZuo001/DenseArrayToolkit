@@ -1,5 +1,5 @@
 function plotResults(mig,pre_rfm,lsmig,pre_rflsm,param,mask)
-
+    load roma;
     param = param.paramMig;
 % paramters
     x = param.x ;
@@ -26,12 +26,11 @@ function plotResults(mig,pre_rfm,lsmig,pre_rflsm,param,mask)
     subplot(2,5,[1 2 3])
     imagesc(x,z,mig(:,:,nnx)./max(mig(:)),'CDataMapping','scaled','Interpolation','bilinear');
     title('Migration image')
-    clim([-1 1]);
+    caxis([-0.1 0.1]);
     axis equal
-    % colormap(flipud(roma))
+    colormap(flipud(roma))
     ylim([0 100])
     xlim([min(x) max(x)])
-    clim([-0.5 0.5])
     colorbar
     set(gca,'XMinorTick','on','YMinorTick','on');
     set(gca,'FontSize',16)
@@ -49,10 +48,11 @@ function plotResults(mig,pre_rfm,lsmig,pre_rflsm,param,mask)
     imagesc(x,z,lsmig(:,:,nnx)./max(lsmig(:)),'CDataMapping','scaled','Interpolation','bilinear');
     title('LSM image')
     axis equal
-    % colormap(flipud(roma))
+    colormap(flipud(roma))
     ylim([0 100])
     xlim([min(x) max(x)])
-    clim([-0.5 0.5])
+    colormap(roma)
+    caxis([-0.1 0.1])
     colorbar
     set(gca,'XMinorTick','on','YMinorTick','on');
     set(gca,'FontSize',16)
@@ -68,13 +68,11 @@ function plotResults(mig,pre_rfm,lsmig,pre_rflsm,param,mask)
     subplot(2,5,[4 5])
     imagesc(y,z,squeeze(mig(:,nny,:))./max(mig(:)),'CDataMapping','scaled','Interpolation','bilinear');
     title('Migration image')
-    clim([-1 1]);
+    caxis([-0.1 0.1]);
     axis equal
-    % colormap(flipud(roma))
+    colormap(flipud(roma))
     ylim([0 100])
     xlim([min(y) max(y)])
-    % xlim([0 300])
-    clim([-0.5 0.5])
     colorbar
     set(gca,'XMinorTick','on','YMinorTick','on');
     set(gca,'FontSize',16)
@@ -90,10 +88,10 @@ function plotResults(mig,pre_rfm,lsmig,pre_rflsm,param,mask)
     imagesc(y,z,squeeze(lsmig(:,nny,:))./max(lsmig(:)),'CDataMapping','scaled','Interpolation','bilinear');
     title('LSM image')
     axis equal
-    % colormap(flipud(roma))
+    colormap(flipud(roma))
     ylim([0 100])
     xlim([min(y) max(y)])
-    clim([-0.5 0.5])
+    caxis([-0.1 0.1])
     colorbar
     set(gca,'XMinorTick','on','YMinorTick','on');
     set(gca,'FontSize',16)

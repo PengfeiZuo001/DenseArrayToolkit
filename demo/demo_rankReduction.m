@@ -56,8 +56,13 @@ DataStruct = deconv(DataStruct, DeconvParam);
 %% 4. Perform rank reduction (DRR-OTG) for each event
 % --------------------------------------------------
 fprintf('\n[Step 4] Doing rank reduction (DRR-OTG) for each event...\n');
-
-gridStruct = createGrid(DataStruct);
+dx = 10;
+dy = 10;
+dz = 1;
+zmax = 100;
+xpad = 50;
+ypad = 50;
+gridStruct = createGrid(DataStruct, dx, dy, dz, zmax, xpad, ypad);
 
 eventList = getEvents(DataStruct);  % Returns struct array of event info
 eventIDs  = {eventList.evid};

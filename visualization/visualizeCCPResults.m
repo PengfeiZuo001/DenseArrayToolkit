@@ -55,10 +55,6 @@ end
 %% Load required data
 % Load colormap
 cmap = load('./visualization/colormap/roma.mat');
-
-% Load DEM data
-dem = load('./visualization/Qaidam_DEM.mat');
-
 %% Prepare visualization data
 % Extract coordinates
 X = ccpResult.X;
@@ -90,7 +86,7 @@ rx = gridStruct.rx(:,1);
 ry = gridStruct.ry(:,2);
 scatter(ax1, rx, ry, 100, '^', 'MarkerFaceColor', 'b', 'MarkerEdgeColor', 'k');
 
-%     % Set DEM display properties
+% Set DEM display properties
 zlim([ax1.ZLim]);
 xlim([ax1.XLim]);
 ylim([ax1.YLim]);

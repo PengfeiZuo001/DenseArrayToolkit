@@ -59,7 +59,8 @@ nt       = length(timeAxis);
 param.paramMig.Ti = timeAxis;
 param.paramMig.dt = dt_samp;
 param.paramMig.nt = nt;
-
+param.paramMig.gauss = param.gauss;
+param.paramMig.phaseshift = param.phaseshift;
 %% ------------------------------------------------------------------------
 %  (5) Forward wavefield modeling (source, shift, etc.)
 % -------------------------------------------------------------------------
@@ -92,7 +93,13 @@ save_wavefield = 0;
 % -------------------------------------------------------------------------
 MigResult.mig   = mig;
 MigResult.migls = lsmig;
-
+x = param.paramMig.x;
+y = param.paramMig.y;
+z = param.paramMig.z;
+[X,Y,Z] = meshgrid(x,y,z);
+MigResult.X = X;
+MigResult.Y = Y;
+MigResult.Z = Z;
 %% ------------------------------------------------------------------------
 %  (9) Plot migration results
 if param.paramMig.plot
