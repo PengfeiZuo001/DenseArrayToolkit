@@ -100,11 +100,7 @@ for iEvt = 1:length(eventIDs)
     fprintf('Processing event #%d: %s with %d traces.\n', ...
         iEvt, eventID, length(commonEventGather));
 
-    %% 4.1 Extract and Preprocess Waveforms
-    [d_z, d_r, d_t, t, dt] = extractAndPreprocessWaveforms(commonEventGather,...
-        param.lows, param.highs);
-
-    %% 4.2 Compute Distance Offsets for Each Trace
+    %% 4.1 Compute Distance Offsets for Each Trace
     % Example approach: each trace's TravelInfo.distDeg => distance in km
     %   distDeg * (2*pi*6371/360) => approximate arc length on Earth
     dist = zeros(length(commonEventGather),1);
@@ -115,6 +111,14 @@ for iEvt = 1:length(eventIDs)
 
     % Convert offsets to h = distance - min(distance)
     h = dist - min(dist);
+    [h,idx] = sort(h);
+    commonEventGather = commonEventGather(idx);
+
+    %% 4.1 Extract and Preprocess Waveforms
+    [d_z, d_r, d_t, t, dt] = extractAndPreprocessWaveforms(commonEventGather,...
+        param.lows, param.highs);
+
+    %% Set radon parameter
     Param.h  = h;       % required by radon_op
     Param.v  = 1./p;    % just for illustration if radon_op uses velocity
     Param.nt = length(t);
@@ -123,7 +127,6 @@ for iEvt = 1:length(eventIDs)
 
     % Preallocate transform model "ma"
     ma = zeros(Param.nt, np);
-
     %% 4.3 Perform Radon Transform on Z
     try
         % Initialize the model with zeros

@@ -1,4 +1,4 @@
-function [gather, d1_otg] = rankReduction(gather, gridStruct, param)
+function [gather, d1_otg, reconGrid] = rankReduction(gather, gridStruct, param)
 % RANKREDUCTION - Do rank reduction (DRR-OTG) on gather data in 3D (time x x-dist x y-dist)
 %
 % Usage:
@@ -80,6 +80,8 @@ xx=param.ox+[0:param.nx-1]*dx;
 yy=param.oy+[0:param.ny-1]*dy;
 [Xgrid,Ygrid] = meshgrid(xx,yy);
 
+reconGrid.x = xout;
+reconGrid.y = yout;
 % figure; 
 % plot(rx,ry,'^'); hold on;
 % plot(Xgrid(:),Ygrid(:),'.');

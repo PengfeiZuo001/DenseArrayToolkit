@@ -1,25 +1,39 @@
-%% DenseArrayToolkit Common Conversion Point Stacking主函数示例
-% 该脚本演示了从数据读取到成像结果可视化的基本流程。
-% 包含以下主要步骤：
-%   0. 设置路径和参数
-%   1. 读入数据
-%   2. 预处理
-%   3. 获取台阵和事件信息
-%   4. 创建速度模型
-%   5. CCP成像
-%   6. 可视化
-%   7. 保存结果
+%% DenseArrayToolkit Common Conversion Point (CCP) Stacking Main Function Example
+% This script demonstrates the complete workflow for seismic imaging using receiver
+% functions and Common Conversion Point stacking method. The workflow processes
+% seismic data from the QBI array to image subsurface structures.
+%
+% Main processing steps include:
+%   0. Setup paths and parameters - Initialize environment and load configurations
+%   1. Read data - Import seismic waveform data in SAC format
+%   2. Preprocessing - Apply filters and prepare data for analysis
+%   3. Get array and event information - Extract metadata and geometry
+%   4. Create velocity model - Set up 3D velocity structure for migration
+%   5. CCP imaging - Perform Common Conversion Point stacking
+%   6. Visualization - Display results using various plotting methods
+%   7. Save results - Store processed data and images
+%
+% This script focuses on processing data from the QBI array deployment for
+% subsurface imaging and structural analysis.
 
 clear; clc; close all;
 
-%% 0. 设置路径和参数
-% 调用自定义函数 setupPaths() 来添加依赖包和函数的搜索路径
+%% 0. Setup paths and parameters
+% Initialize the processing environment by adding necessary functions to MATLAB path
+% and loading configuration parameters for various processing steps.
 setupPaths();
 
-% 加载配置文件中的各种参数（如数据路径、处理参数等）
+% Load configuration file containing essential parameters for data processing
+% including paths, preprocessing settings, and imaging parameters
 config = loadConfig();
 
-% 使用配置文件中的参数
+% Extract processing parameters from configuration structure
+% - dataFolder: Directory containing seismic data files
+% - PreprocessingParam: Parameters for filtering, windowing, and quality control
+% - MigParam: Parameters controlling migration process
+% - RadonParam: Settings for Radon transform array processing
+% - DeconvParam: Parameters for receiver function deconvolution
+% - CCPParam: Settings for Common Conversion Point stacking
 dataFolder         = config.dataFolder;
 PreprocessingParam = config.PreprocessingParam;
 MigParam           = config.MigParam;
@@ -28,102 +42,139 @@ DeconvParam        = config.DeconvParam;
 CCPParam           = config.CCPParam;
 
 dataFolder = './data/event_waveforms_QBI';
-%% 1. 读入数据
-% 读取 dataFolder 中的 SAC 格式地震数据，并封装到 DataStruct 中
+%% 1. Read data
+% Load seismic waveform data in SAC format from the QBI array deployment
+% The data is encapsulated into a structured array (DataStruct) containing
+% waveforms and metadata for each recording
 DataStruct = read_SAC(dataFolder);
-%% 2. 预处理
-% 根据配置的预处理参数（如滤波、去均值、切片等）对 DataStruct 进行处理
+%% 2. Preprocessing
+% Apply standard seismic data preprocessing steps defined in PreprocessingParam:
+% - Filtering: Remove unwanted frequency components
+% - Demeaning: Remove DC offset from signals
+% - Time window selection: Extract relevant portion of seismograms
+% - Quality control: Remove noisy or incomplete recordings
 DataStruct = preprocessing(DataStruct, PreprocessingParam);
 
-%% 3. 获取台阵和事件信息
-% 从 DataStruct 中提取台站列表和事件列表
+%% 3. Get array and event information
+% Extract and organize metadata about the seismic array geometry and earthquake
+% source locations. This information is crucial for:
+% - Spatial analysis of the seismic array
+% - Ray path calculations
+% - Migration of receiver functions
+% - Quality control based on source-receiver geometry
 stationList = getStations(DataStruct);
 eventList   = getEvents(DataStruct);
 
-% 提取台站和事件的经纬度信息，便于后续一致性筛选
-stlo = [stationList.stlo]';  % 台站经度
-stla = [stationList.stla]';  % 台站纬度
-evla = [eventList.evla]';    % 事件震中纬度
-evlo = [eventList.evlo]';    % 事件震中经度
+% Extract station and event coordinates for spatial analysis and filtering
+stlo = [stationList.stlo]';  % Station longitude
+stla = [stationList.stla]';  % Station latitude
+evla = [eventList.evla]';    % Event epicenter latitude
+evlo = [eventList.evlo]';    % Event epicenter longitude
 
-% 事件 ID 列表
+% List of unique event identifiers
 eventid = {eventList.evid};
 
-% 生成事件-台站对应表，便于后续快速索引
+% Generate event-station correspondence table for efficient data access
 EventStationTable = getEventStationTable(DataStruct);
 
-%% 4. 创建速度模型
-% 根据台站位置，进行主成分分析，自动创建成像网格
+%% 4. Create velocity model
+% Generate a 3D velocity model for migration imaging:
+% 1. Create an imaging grid based on array geometry using principal component
+%    analysis to optimize grid orientation
+% 2. Set grid spacing (dx, dy) for horizontal dimensions
+% 3. Define velocity structure using a 3D model
 dx = 5;
 dy = 5;
 gridStruct = createGrid(DataStruct, dx, dy);
-% 创建或获取速度模型，在后续成像中使用
-gridStruct = getVelocityModel('3D',gridStruct,10);
-%% 5. 偏移成像
-% 准备保存偏移结果的矩阵，这里将所有事件的成像结果进行累积存储
-dimg = [];    % 存储最CCP结果
-count = [];
-nMigratedEvents  = 1;   % 用于计数成功完成成像的事件数
+% Create or obtain 3D velocity model with specified sampling (10 points)
+% This model will be used for ray tracing in migration
+npts = 10;
+gridStruct = getVelocityModel('3D',gridStruct,npts);
+%% 5. Migration imaging
+% Perform Common Conversion Point (CCP) stacking for each event that meets quality
+% criteria. This process includes:
+% 1. Extract event gathers (recordings of the same event at different stations)
+% 2. Quality control: Skip events with insufficient station coverage (<60 stations)
+% 3. Optional Radon Transform for array processing
+% 4. Receiver function calculation through deconvolution
+% 5. CCP stacking to create 3D image volume
 
-% 遍历所有符合筛选条件的事件
+% Initialize arrays for accumulating migration results across all events
+dimg = [];    % 4D array to store CCP stacking results (X, Y, Z, Event)
+count = [];   % 4D array tracking number of traces contributing to each point
+nMigratedEvents = 1;   % Counter for successfully processed events
+minTrace = 60; % Minimum number of traces required for CCP imaging
+minSNR = 3;    % Minimum SNR of the RF required for CCP imaging
+DeconvParam.radonfilter = 0; % Apply radon transform to seismograms
+% Process each event that meets the filtering criteria
 for iEvent = 1:length(eventid)
-    evid = eventid{iEvent}; 
-    % 提取当前事件对应的地震记录子集（Common Event Gather）
+    evid = eventid{iEvent};
+    % Extract seismic records for current event (Common Event Gather)
     gather = getCommonEventGather(DataStruct, evid);
-    
-    % 如果该事件的有效台站数小于 60，则跳过，以保证成像质量
-    if length(gather) < 60
+    % Extract the SNR
+    snrAll = cell2mat(cellfun(@(rf) rf.snr, {gather.RF}, 'UniformOutput', false));
+    % Skip events with fewer than 60 valid stations to ensure imaging quality
+    if length(gather) < minTrace || mean(snrAll)< minSNR
         continue
     end
-    
-    % 是否启用 radonfilter，进一步提升信号质量
+
+    % Check if Radon filtering is enabled for enhanced signal quality
     if DeconvParam.radonfilter
-        % 进行拉东变换（RadonTransform）以实现台阵处理
+        RadonParam.highs = 1.2;
+        RadonParam.pmax = 0.05;
+        RadonParam.pmin = -0.05;
+        % Apply Radon Transform for array processing
         gather = radonTransform(gather, RadonParam);
     end
 
-    % 对数据进行反褶积处理，以获取接收函数
+    % Perform deconvolution to obtain receiver functions
     DeconvParam.verbose = false;
     gather = deconv(gather, DeconvParam);
-    
-    % 调用 CCPCommonEventGather 进行共转换点叠加成像
+
+    % Apply Common Conversion Point stacking for the current event gather
     ccpResult = CCPCommonEventGather(gather, gridStruct, CCPParam);
     dimg(:,:,:,nMigratedEvents) = ccpResult.img;
     count(:,:,:,nMigratedEvents) = ccpResult.count;
-   
-    % 关闭所有图窗，避免在批量处理时生成过多窗口
+
+    % Clear figure windows to avoid memory issues during batch processing
     close all;
-    
     nMigratedEvents = nMigratedEvents + 1;
 end
-%% 6. 可视化
-% smooth the image
-X = ccpResult.X;
-Y = ccpResult.Y;
-Z = ccpResult.Z;
-V = sum(dimg,4)./max(sum(count,4),1);
-% 绘制切片
-figure;
-set(gcf,'Position',[50 50 800 800],'Color','w')
-h = slice(X,Y,Z,V,90,90,40);
-xlabel('X (km)');
-ylabel('Y (km)');
-zlabel('Z (km)');
-set(h(:),'EdgeColor','none')
-set(gca,'ZDir','reverse')
-set(gca,'YDir','reverse')
-colormap(flipud(roma));
-cmax = rms(V_smooth(:));
-caxis([-cmax cmax]);
-view(0,90)
-% [xpoints,ypoints] = ginput;
+%% 6. Visualization
+% Create visualizations of the CCP stacking results using the visualizeCCPResults
+% function, which provides:
+% 1. 3D volume visualization with topography overlay
+% 2. Interactive profile selection
+% 3. Structure-oriented filtering of cross-sections
+% 4. Comparative display of original and filtered profiles
 
-profileAll={};
-for n = 1:length(xpoints)-1
-    profile=[xpoints(n),ypoints(n);xpoints(n+1),ypoints(n+1)];
-    profileAll{n} = profile;
-end
-plotCCPXsectionCartesian(X,Y,Z,V_smooth,gridStruct,profileAll)
-%% 7. 保存结果
-% 将ccpResult写入到指定文件中
+% Prepare the normalized image volume
+ccpResult.V = sum(dimg,4)./max(sum(count,4),1);
+
+% Configure visualization options
+options = struct();
+options.profileType = 'predefined';  % Enable interactive profile selection
+options.smoothingParams = struct(...
+    'radius', 3, ...        % Smoothing radius
+    'eps', 0.01, ...       % Regularization parameter
+    'order', 2);           % Smoothing order
+% define profile location
+profilePoints = [
+91.461	37.47
+91.948	38.168
+93.599	38.782
+93.994	38.681
+95.53531 39.21347];
+[px,py] = latlonToProjectedCoords(profilePoints(:,1), profilePoints(:,2), gridStruct);
+options.profilePoints(:,1) = px;
+options.profilePoints(:,2) = py;
+% Generate visualizations and get profile data structure
+profileStruct = visualizeCCPResults(ccpResult, gridStruct, options);
+%% 7. Save results
+% Save the final CCP imaging results to a MAT file for future reference and analysis.
+% The saved results include:
+% - 3D image volume
+% - Grid coordinates
+% - Processing parameters
+% - Other relevant metadata
 write_MigResult([config.outputFolder,'/ccpResult.mat'], ccpResult);

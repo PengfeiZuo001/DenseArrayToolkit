@@ -153,38 +153,22 @@ switch param.imagingType
         % Initialize stacking result matrices
         V = zeros(nz, nx); % Store accumulated amplitude values
         count = zeros(nz, nx); % Store sample count for each grid
-        xmin = min(gridStruct.x);
-        dx = gridStruct.dx;
-        
-        % Perform parallel processing for speed
-%         parfor i = 1:nz
-%             for j = 1:nx
-%                 for n = 1:length(cp)
-%                     xi = cp(n).rx;
-%                     zi = cp(n).zpos;
-%                     vi = cp(n).amp;
-%                     keep = xi >= gridStruct.x(j) - 2 * gridStruct.dx & xi <= gridStruct.x(j) + 2 * gridStruct.dx & ...
-%                         zi >= gridStruct.z(i) - 2 * gridStruct.dz & zi <= gridStruct.z(i) + 2 * gridStruct.dz;
-%                     V(i, j) = V(i, j) + sum(vi(keep));
-%                     count(i, j) = count(i, j) + sum(keep);
-%                 end
-%             end
-%         end
+        dx = gridStruct.dx;      
 
         for n = 1:length(cp)
             % 2D stacking
             xx=cp(n).rx;
             zz=cp(n).zpos;
             for j=1:length(zz)
-                i=floor((xx(j)-xmin)/dx)+1;
+                col_idx=floor((xx(j)-gridStruct.x(1))/dx)+1;
                 % Calculate z-layer index
-                m = floor((zz(j) - gridStruct.z(1)) / gridStruct.dz) + 1;
+                row_idx = floor((zz(j) - gridStruct.z(1)) / gridStruct.dz) + 1;
                 % Validate array indices
-                if i>=1 && i<=nx && m>=1 && m<=nz
+                if col_idx>=1 && col_idx<=nx && row_idx>=1 && row_idx<=nz
                     amp = cp(n).amp(j);
                     if ~isnan(amp)
-                        count(m,i) = count(m,i) + 1;
-                        V(m,i) = V(m,i) + amp;
+                        count(row_idx,col_idx) = count(row_idx,col_idx) + 1;
+                        V(row_idx,col_idx) = V(row_idx,col_idx) + amp;
                     end
                 end
             end
@@ -231,8 +215,6 @@ switch param.imagingType
         % Initialize stacking result matrices
         V = zeros(ny, nx, nz); % Store accumulated amplitude values
         count = zeros(ny, nx, nz); % Store sample count for each grid
-        xmin = min(gridStruct.x);
-        ymin = min(gridStruct.y);
         dx = gridStruct.dx;
         dy = gridStruct.dy;
 
@@ -246,27 +228,28 @@ switch param.imagingType
 
             % 3D stacking
             for k=1:length(zz)
-                i=floor((yy(k)-ymin)/dy)+1;
-                j=floor((xx(k)-xmin)/dx)+1;
+                yy_idx=floor((yy(k)-gridStruct.y(1))/dy)+1;
+                xx_idx=floor((xx(k)-gridStruct.x(1))/dx)+1;
                 % Calculate z-layer index
-                m = floor((zz(k) - gridStruct.z(1)) / gridStruct.dz) + 1;
+                zz_idx = floor((zz(k) - gridStruct.z(1)) / gridStruct.dz) + 1;
                 % Validate array indices
-                if i>=1 && i<=ny && j>=1 && j<=nx && m>=1 && m<=nz
+                if yy_idx>=1 && yy_idx<=ny && xx_idx>=1 && xx_idx<=nx && zz_idx>=1 && zz_idx<=nz
                     amp = cp(n).amp(k);
                     if ~isnan(amp)
-                        count(i,j,m) = count(i,j,m) + 1;
-                        V(i,j,m) = V(i,j,m) + amp;
+                        count(yy_idx,xx_idx,zz_idx) = count(yy_idx,xx_idx,zz_idx) + 1;
+                        V(yy_idx,xx_idx,zz_idx) = V(yy_idx,xx_idx,zz_idx) + amp;
                     end
                 end
             end
 
         end
-        % apply smoothing to the CCP image
+%         % apply smoothing to the CCP image
         if param.smoothLength > 0
             V = smooth3(V,'box',param.smoothLength);
+            count = smooth3(count,'box',param.smoothLength);
         end
-        %         V = V./max(count,1);  % Disabled alternative normalization
 
         ccpResult = struct('X', X, 'Y', Y, 'Z', Z, 'img', V, 'count', count);
 end
+
 end

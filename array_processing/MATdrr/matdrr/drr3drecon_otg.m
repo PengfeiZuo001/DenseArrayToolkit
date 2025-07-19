@@ -288,43 +288,6 @@ for k=1:Nu
     end
 end
 
-% function [U] = inter_op(D, par, adj)
-% % inter_op: 改进的插值函数，使用自然邻域插值提高精度
-% %
-% % 输入:
-% %   D   - 输入数据（adj=1时为1D不规则数据，adj=0时为2D规则网格数据）
-% %   par - 参数结构体，包含坐标和网格信息
-% %   adj - 方向标志（1: 不规则→规则网格，0: 规则网格→不规则）
-% %
-% % 输出:
-% %   U   - 插值结果
-% 
-% % 提取参数
-% rx = par.x(:); % 不规则点的x坐标（列向量）
-% ry = par.y(:); % 不规则点的y坐标（列向量）
-% 
-% % 生成规则网格坐标
-% dx = (par.mx - par.ox) / (par.nx - 1);
-% dy = (par.my - par.oy) / (par.ny - 1);
-% xx = linspace(par.ox, par.mx, par.nx); % 规则网格x轴坐标
-% yy = linspace(par.oy, par.my, par.ny); % 规则网格y轴坐标
-% 
-% if adj == 1
-%     % 从1D不规则数据插值到2D规则网格
-%     % 输入D为1D向量，长度与rx/ry相同
-%     F = scatteredInterpolant(rx, ry, D(:), 'linear', 'nearest');
-%     [XX, YY] = meshgrid(xx, yy);
-%     U = F(XX, YY)'; % 转置以匹配矩阵维度
-% %     U(isnan(U)) = 0; % 处理外推区域
-% else
-%     % 从2D规则网格插值到1D不规则点
-%     % 输入D为2D矩阵，尺寸为par.nx x par.ny
-%     [XX, YY] = meshgrid(xx, yy);
-%     F = scatteredInterpolant(XX(:), YY(:), D(:), 'linear', 'nearest');
-%     U = F(rx, ry); % 直接插值到不规则点
-% %     U(isnan(U)) = 0; % 处理外推区域
-% end
-
 return
 
 
