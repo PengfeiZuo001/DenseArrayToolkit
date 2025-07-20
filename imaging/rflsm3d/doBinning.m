@@ -1,6 +1,6 @@
 function [ dout,mask] = doBinning(din,rx,ry, x, y,nx,ny, dx, dy)
 
-% input: 
+% input:
 %       din: nt*ntraces matrix
 %       rx: x stations coordinates
 %       ry: y stations coordinates
@@ -24,25 +24,24 @@ for iy=1:ny
         n=length(index);
         if n==1
             dout(:,ix,iy)=din(:,index);
-        else if n==0
-                mask(ix,iy)=0;
-                dout(:,ix,iy)=zeros(n1,1);
-            end
-            
-            if n>=2
-                if rx(index(1))==x(ix) && ry(index(1))==y(iy)
-                    dout(:,ix,iy)=din(:,index(1));
-                else
-                    % t1=sqrt((x(index(1))-xout(ix))^2+(y(index(1))-yout(iy))^2);
-                    % t2=sqrt((x(index(2))-xout(ix))^2+(y(index(2))-yout(iy))^2);
-                    % dout(:,ix,iy)=(t1*din(:,index(2))+t2*din(:,index(1)))/(t1+t2);
-                    [dist,idx]=sort(sqrt((rx(index)-x(ix)).^2+(ry(index)-y(iy)).^2));
-                    t1 = dist(1);
-                    t2 = dist(2);
+        elseif n==0
+            mask(ix,iy)=0;
+            dout(:,ix,iy)=zeros(n1,1);
+        end
 
-                    dout(:,ix,iy)=(t1*din(:,index(idx(2)))+t2*din(:,index(idx(1))))/(t1+t2);
-%                     dout(:,ix)=(t1*din(:,index(2))+t2*din(:,index(1)))/(t1+t2);
-                end
+        if n>=2
+            if rx(index(1))==x(ix) && ry(index(1))==y(iy)
+                dout(:,ix,iy)=din(:,index(1));
+            else
+                % t1=sqrt((x(index(1))-xout(ix))^2+(y(index(1))-yout(iy))^2);
+                % t2=sqrt((x(index(2))-xout(ix))^2+(y(index(2))-yout(iy))^2);
+                % dout(:,ix,iy)=(t1*din(:,index(2))+t2*din(:,index(1)))/(t1+t2);
+                [dist,idx]=sort(sqrt((rx(index)-x(ix)).^2+(ry(index)-y(iy)).^2));
+                t1 = dist(1);
+                t2 = dist(2);
+
+                dout(:,ix,iy)=(t1*din(:,index(idx(2)))+t2*din(:,index(idx(1))))/(t1+t2);
+                %                     dout(:,ix)=(t1*din(:,index(2))+t2*din(:,index(1)))/(t1+t2);
             end
         end
     end

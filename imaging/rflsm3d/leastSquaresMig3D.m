@@ -77,7 +77,15 @@ back_azimuth = mean([raypAll.baz]);
 disp(['Event: Baz ', num2str(back_azimuth),', Inc: ',num2str(take_off)])
 disp('---------------------------------------------------------------')
 %% shift RF
-[rfshift,src_func,mask] = shiftRFs(itrMat,take_off,back_azimuth,gridStruct,param);
+stla = cell2mat(cellfun(@(sta) sta.stla, {gather.StationInfo}, 'UniformOutput', false));    
+stlo = cell2mat(cellfun(@(sta) sta.stlo, {gather.StationInfo}, 'UniformOutput', false));    
+
+[rx, ry] = latlonToProjectedCoords(stlo, stla, gridStruct);
+x = gridStruct.x;
+y = gridStruct.y;
+xo = gridStruct.XInOriginalCoord(:);
+yo = gridStruct.YInOriginalCoord(:);
+[rfshift,src_func,mask] = shiftRFs(itrMat,take_off,back_azimuth,xo,yo,x,y,rx,ry,param);
 
 %% migration
 save_wavefield = 0;
