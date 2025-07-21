@@ -170,7 +170,7 @@ migls_final = sum(mig_imgls,4)./nProcessedEvents;
 
 % === 3D CCP Image ===
 figure('Name', 'CCP Stacking Results', 'Position', [100, 100, 800, 600]);
-subplot(2,2,1);
+subplot(1,3,1);
 V_ccp = mean(ccp_img,4);
 h1 = slice(X,Y,Z,V_ccp,90,90,40);
 xlabel('X (km)'); ylabel('Y (km)'); zlabel('Z (km)');
@@ -180,8 +180,9 @@ title('CCP Stacking - Average Image');
 colorbar;
 
 % === 3D Migration Image ===
-subplot(2,2,2);
+subplot(1,3,2);
 V_mig = mean(mig_img,4);
+V_mig = permute(V_mig,[3,2,1]);
 h2 = slice(X,Y,Z,V_mig,90,90,40);
 xlabel('X (km)'); ylabel('Y (km)'); zlabel('Z (km)');
 set(h2(:),'EdgeColor','none'); set(gca,'ZDir','reverse');
@@ -190,23 +191,14 @@ title('Migration - Average Image');
 colorbar;
 
 % === 3D Least-Squares Migration ===
-subplot(2,2,3);
+subplot(1,3,3);
 V_migls = mean(mig_imgls,4);
+V_migls = permute(V_migls,[3,2,1]);
 h3 = slice(X,Y,Z,V_migls,90,90,40);
 xlabel('X (km)'); ylabel('Y (km)'); zlabel('Z (km)');
 set(h3(:),'EdgeColor','none'); set(gca,'ZDir','reverse');
 colormap(flipud(roma)); cmax = rms(V_migls(:)); caxis([-cmax cmax]);
 title('Least-Squares Migration - Average Image');
-colorbar;
-
-% === Data Coverage (Fold Map) ===
-subplot(2,2,4);
-fold_map = sum(ccp_count,4);
-h4 = slice(X,Y,Z,fold_map,90,90,50);
-xlabel('X (km)'); ylabel('Y (km)'); zlabel('Z (km)');
-set(h4(:),'EdgeColor','none'); set(gca,'ZDir','reverse');
-colormap(flipud(hot)); caxis([0 20]);
-title('Data Coverage (Fold)');
 colorbar;
 
 %% 9. Save comparison results
