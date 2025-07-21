@@ -48,9 +48,9 @@ if ~isfield(options, 'displayMode')
     options.displayMode = 'both';
 end
 
-if ~isfield(options, 'smoothingParams')
-    options.smoothingParams = struct('radius', 3, 'eps', 0.01, 'order', 2);
-end
+% if ~isfield(options, 'smoothingParams')
+%     options.smoothingParams = struct('radius', 3, 'eps', 0.01, 'order', 2);
+% end
 
 %% Load required data
 % Load colormap
@@ -195,11 +195,15 @@ if isfield(options, 'smoothingParams')
     ylabel('Depth (km)');
     set(gca, 'FontSize', 16);
 
-end
+    % Store results in profile structure
+    profileStruct = struct('distance', distAll, ...
+        'depth', depthAll, ...
+        'amplitude', VAll, ...
+        'filtered', VAll_filtered, ...
+        'dip', dip);
+else
 
-% Store results in profile structure
-profileStruct = struct('distance', distAll, ...
-                      'depth', depthAll, ...
-                      'amplitude', VAll, ...
-                      'filtered', VAll_filtered, ...
-                      'dip', dip);
+    % Store results in profile structure
+    profileStruct = struct('distance', distAll, ...
+        'depth', depthAll);
+end

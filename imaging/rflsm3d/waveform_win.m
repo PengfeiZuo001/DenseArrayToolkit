@@ -16,6 +16,10 @@ function [win] = waveform_win(data,t,tstart,tend,td)
     ratio = 2*dlen/Len;
     
     w = tukeywin(Len,ratio);
+    % set the first half of tukeywin to 1 to avoid tapering the beginning
+    % part of the signal
+    idx_mid = length(w)/2;
+    w(1:idx_mid) = 1;
     
     n1 = fix((tstart-t(1))/dt)+1;
     
@@ -23,6 +27,4 @@ function [win] = waveform_win(data,t,tstart,tend,td)
     w2 = n1 + Len-1;
     
     win(w1:w2) = w;
-
-
 end

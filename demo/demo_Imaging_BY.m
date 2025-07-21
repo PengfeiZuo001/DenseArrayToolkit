@@ -1,13 +1,43 @@
-% 该脚本主要用于计算CCP
+%% DenseArrayToolkit 3D CCP Imaging Example - BaiyanEbo Region
+% This script demonstrates 3D Common Conversion Point (CCP) stacking for
+% seismic imaging in the BaiyanEbo region. It processes receiver functions
+% to create volumetric subsurface images showing crustal and upper mantle
+% structures beneath the dense seismic array.
+%
+% Main processing steps include:
+%   0. Setup paths and parameters - Initialize environment and load configurations
+%   1. Read data - Import seismic waveform data in SAC format
+%   2. Preprocessing - Apply filters and prepare data for analysis
+%   3. Get array and event information - Extract metadata for 3D processing
+%   4. Create velocity model - Set up 3D velocity structure for CCP stacking
+%   5. Compute receiver functions - Extract P-to-S converted phases
+%   6. CCP stacking - Perform 3D Common Conversion Point imaging
+%   7. Results output - Visualize and save 3D imaging results
+%
+% This script implements 3D CCP stacking with rank reduction preprocessing
+% for improved signal-to-noise ratio in dense array applications.
+
 clear; clc; close all;
 cd ../
-%% 0. 设置路径和参数
-% 调用自定义函数 setupPaths() 来添加依赖包和函数的搜索路径
+
+%% 0. Setup paths and parameters
+% Initialize the processing environment by adding necessary functions and
+% dependencies to the MATLAB path. This ensures access to all required
+% processing routines in the DenseArrayToolkit.
 setupPaths();
-% 加载配置文件中的各种参数（如数据路径、处理参数等）
+
+% Load configuration file containing essential parameters for data processing,
+% including paths, processing parameters, and imaging settings
 config = loadConfig();
 
-% 使用配置文件中的参数
+% Extract processing parameters from configuration structure
+% - dataFolder: Directory containing seismic data files
+% - PreprocessingParam: Parameters for filtering, windowing, and quality control
+% - MigParam: Parameters controlling migration algorithms (not used in CCP)
+% - RadonParam: Settings for Radon transform array processing (optional)
+% - DeconvParam: Parameters for receiver function deconvolution
+% - CCPParam: Settings for Common Conversion Point stacking
+% - RankReductionParam: Parameters for rank reduction preprocessing
 dataFolder         = config.dataFolder;
 PreprocessingParam = config.PreprocessingParam;
 MigParam           = config.MigParam;
@@ -15,117 +45,169 @@ RadonParam         = config.RadonParam;
 DeconvParam        = config.DeconvParam;
 CCPParam           = config.CCPParam;
 
-%% 1. 读入数据
-% 读取 dataFolder 中的 SAC 格式地震数据，并封装到 DataStruct 中
+%% 1. Read data
+% Load seismic waveform data in SAC format from the specified directory
+% The data is encapsulated into a structured array (DataStruct) containing
+% waveforms and metadata for each recording
 DataStruct = read_SAC(dataFolder);
 
-%% 2. 预处理
-% 根据配置的预处理参数（如滤波、去均值、切片等）对 DataStruct 进行处理
+%% 2. Preprocessing
+% Apply standard seismic data preprocessing steps defined in PreprocessingParam:
+% - Filtering: Remove unwanted frequency components
+% - Demeaning: Remove DC offset from signals
+% - Time window selection: Extract relevant portion of seismograms
+% - Quality control: Remove noisy or incomplete recordings
 DataStruct = preprocessing(DataStruct, PreprocessingParam);
 
-%% 3. 获取台阵和事件信息
-% 从 DataStruct 中提取台站列表和事件列表
+%% 3. Get array and event information
+% Extract metadata about the seismic array geometry and earthquake sources
+% This information is crucial for:
+% - Spatial analysis and quality control
+% - 3D CCP volume definition
+% - Processing optimization for dense arrays
 stationList = getStations(DataStruct);
 eventList   = getEvents(DataStruct);
 
-% 提取台站和事件的经纬度信息，便于后续一致性筛选
-stlo = [stationList.stlo]';  % 台站经度
-stla = [stationList.stla]';  % 台站纬度
-evla = [eventList.evla]';    % 事件震中纬度
-evlo = [eventList.evlo]';    % 事件震中经度
+% Extract station and event coordinates for spatial analysis
+stlo = [stationList.stlo]';  % Station longitude
+stla = [stationList.stla]';  % Station latitude
+evla = [eventList.evla]';    % Event epicenter latitude
+evlo = [eventList.evlo]';    % Event epicenter longitude
 
-% 根据 config.max_angle_diff 对事件进行方位角一致性的筛选
+% Optional azimuthal filtering (commented out for this region)
 % idxConsistentEQ = filter_earthquakes_by_azimuth(stlo, stla, evlo, evla, config.max_angle_diff);
 
-% 筛选后的事件 ID 列表
+% Create filtered list of event IDs for processing
 eventid = {eventList.evid};
 % eventid = eventid(idxConsistentEQ);
 
-% 生成事件-台站对应表，便于后续快速索引
+% Generate event-station correspondence table for efficient data access
 EventStationTable = getEventStationTable(DataStruct);
 
-%% 4. 创建速度模型
-% 根据数据和配置文件中的测线长度信息，获取成像剖面的中心和方向等参数
-dx = 10;
-dy = 10;
-dz = 0.5;
-zmax = 100;
+%% 4. Create velocity model
+% Set up the 3D imaging grid and velocity model for CCP stacking:
+% 1. Define grid spacing in x, y, and z directions
+% 2. Create 3D imaging volume based on array geometry
+% 3. Generate 3D velocity model for accurate depth conversion
+% Note: Using 3D velocity model for precise ray tracing and depth conversion
+dx = 10;    % Horizontal x-direction grid spacing (km)
+dy = 10;    % Horizontal y-direction grid spacing (km)
+dz = 0.5;   % Vertical grid spacing (km) - finer resolution for CCP
+zmax = 100; % Maximum imaging depth (km)
+
+% Create 3D imaging grid with specified parameters
 gridStruct = createGrid(DataStruct, dx, dy, dz, zmax);
 
+% Create 3D velocity model for CCP imaging
+% npts = 10 specifies the number of interpolation points for velocity model
 npts = 10;
-gridStruct = getVelocityModel('3D',gridStruct,npts);
+gridStruct = getVelocityModel('3D', gridStruct, npts);
 
-%% 5. 计算接收函数
+%% 5. Compute receiver functions
+% Apply deconvolution to extract receiver functions from seismic waveforms
+% This isolates P-to-S converted phases that contain information about
+% subsurface discontinuities beneath the array
 DataStruct = deconv(DataStruct, DeconvParam);
 
-%% 6. CCP叠加
-% 准备保存偏移结果的矩阵，这里将所有事件的成像结果进行累积存储
+%% 6. CCP stacking
+% Perform 3D Common Conversion Point stacking to create volumetric images:
+% - Stack receiver functions at their theoretical conversion points
+% - Account for 3D ray geometry and velocity structure
+% - Apply rank reduction preprocessing for noise suppression
+%
+% Initialize arrays to store CCP results from all events:
+% dimg - 3D CCP image volume
+% count - 3D hit count volume for normalization
+dimg = [];    % 3D CCP image results
+count = [];   % 3D hit count for normalization
+nMigratedEvents = 1;    % Counter for successfully processed events
 
-dimg = [];    % 存储最CCP结果
-count = [];
-nMigratedEvents  = 1;   % 用于计数成功完成成像的事件数
+minTrace = 100; % Minimum number of traces required for CCP imaging
+minSNR = 5;    % Minimum SNR of the RF required for CCP imaging
 
-% 遍历所有符合筛选条件的事件
+% Process each event in the dataset
 for iEvent = 1:length(eventid)
     evid = eventid{iEvent}; 
-    % 提取当前事件对应的地震记录子集（Common Event Gather）
+    
+    % Extract seismic records for current event (Common Event Gather)
+    % This groups all recordings of the same event across different stations
     gather = getCommonEventGather(DataStruct, evid);
     
-    % 如果该事件的有效台站数小于 50，则跳过，以保证成像质量
-    if length(gather) < 50
+    % Extract the SNR
+    snrAll = cell2mat(cellfun(@(rf) rf.snr, {gather.RF}, 'UniformOutput', false));    
+    % Quality control: Skip events with insufficient station coverage
+    % Minimum minTrace stations required to ensure reliable 3D imaging results
+    if length(gather) < minTrace || mean(snrAll)< minSNR
         continue
     end
 
-    % 对数据进行反褶积处理，以获取接收函数
+    % Apply deconvolution to extract receiver functions
+    % This isolates P-to-S converted phases from the P-wave coda
     gather = deconv(gather, DeconvParam);
     
-    % 调用rankReduction对该事件进行3D数据重构
+    % Apply rank reduction preprocessing to improve signal quality
+    % This helps suppress noise and enhance coherent signals
     RankReductionParam = config.RankReductionParam;
-    RankReductionParam.rank = 10;
+    RankReductionParam.rank = 10;  % Set rank reduction parameter
     [gatherReconstructed, d1_otg] = rankReduction(gather, gridStruct, RankReductionParam);
 
-    % 调用 CCPCommonEventGather 进行共转换点叠加成像
+    % Perform 3D CCP stacking using Common Conversion Point method
+    % This maps receiver functions to their theoretical conversion points
     ccpResult = CCPCommonEventGather(gatherReconstructed, gridStruct, CCPParam);
+    
+    % Store CCP results for current event
+    % dimg - 3D CCP image volume
+    % count - 3D hit count volume for normalization
     dimg(:,:,:,nMigratedEvents) = ccpResult.img;
     count(:,:,:,nMigratedEvents) = ccpResult.count;
-    % 关闭所有图窗，避免在批量处理时生成过多窗口
+    
+    % Close all figure windows to avoid memory issues during batch processing
     close all;
     
     nMigratedEvents = nMigratedEvents + 1;
 end
 
+%% 7. Results output
+% Create final 3D CCP image by stacking all events and normalizing by hit count
+% This produces the final volumetric image showing subsurface structure
 
-%% 7. 结果输出
-% smooth the image
-X = ccpResult.X;
-Y = ccpResult.Y;
-Z = ccpResult.Z;
-V = sum(dimg,4)./max(sum(count,4),1);
+% Extract grid coordinates from CCP results
+X = ccpResult.X;  % X-coordinate grid (km)
+Y = ccpResult.Y;  % Y-coordinate grid (km)
+Z = ccpResult.Z;  % Z-coordinate grid (km)
 
+% Create normalized CCP image by stacking all events
+V = sum(dimg,4)./max(sum(count,4),1);  % Normalized by hit count
+ccpResult.V = V;
+
+% Configure visualization options
+options = struct();
+options.profileType = 'predefined';  % Enable interactive profile selection
+% options.smoothingParams = struct(...
+%     'radius', 3, ...        % Smoothing radius
+%     'eps', 0.01, ...       % Regularization parameter
+%     'order', 2);           % Smoothing order
+% N-S profile crossing Baiyan Obo minning area
+options.profilePoints(:,1) = [76.6927 76.6927 nan 0 200];
+options.profilePoints(:,2) = [0 150 nan 66.9016 66.9016];
+% E-W profile crossing Baiyan Obo minning area
+% options.profilePoints(:,1) = [0; 200];
+% options.profilePoints(:,2) = [66.9016; 66.9016];
+[profileStruct] = visualizeCCPResults(ccpResult, gridStruct, options);
+
+
+% Display 3D fold map showing data coverage
 figure;
-V = mean(dimg,4);
-h = slice(X,Y,Z,V,90,90,40);
+fold_map = sum(count,4);  % Total hit count across all events
+h = slice(X,Y,Z,fold_map,90,90,50);  % Create slices at specified positions
 xlabel('X (km)');
 ylabel('Y (km)');
 zlabel('Z (km)');
-set(h(:),'EdgeColor','none')
-set(gca,'ZDir','reverse')
-colormap(flipud(roma));
-cmax = rms(V(:));
-caxis([-cmax cmax]);
+set(h(:),'EdgeColor','none')  % Remove edge lines for cleaner display
+set(gca,'ZDir','reverse')     % Reverse Z-axis for geological convention
+cm = colormap('hot');         % Use hot colormap for fold display
+colormap(flipud(cm));         % Reverse colormap
+caxis([0 20]);                % Set color scale for fold values
 
-figure;
-fold_map = sum(count,4);
-h = slice(X,Y,Z,fold_map,90,90,50);
-xlabel('X (km)');
-ylabel('Y (km)');
-zlabel('Z (km)');
-set(h(:),'EdgeColor','none')
-set(gca,'ZDir','reverse')
-cm=colormap('hot');
-colormap(flipud(cm));
-caxis([0 20])
-% save './results/BaiyanEbo_ccp.mat' 'X' 'Y' 'Z' 'V_smooth' 'gridStruct'
-
-
-
+% Optional: Save results to file for future analysis
+% save './results/BaiyanEbo_ccp.mat' 'X' 'Y' 'Z' 'V' 'gridStruct'

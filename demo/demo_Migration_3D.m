@@ -103,7 +103,7 @@ gridStruct = getVelocityModel('3D', gridStruct);
 % - 3D least-squares migration for improved resolution
 % - Rank reduction preprocessing for noise suppression
 %
-% Initialize structure to store migration results from all events
+% Initialize structure to store migration results farom all events
 mig = [];
 nMigratedEvents = 1;    % Counter for successfully processed events
 
@@ -157,7 +157,7 @@ end
 %% 6. Visualization
 V = zeros(size(mig(1).mig));
 for n=1:length(mig)
-    V = V+mig(n).migls;
+    V = V+mig(n).mig;
 end
 V = V/length(mig);
 V = permute(V,[3,2,1]);
@@ -169,14 +169,14 @@ migResult.V = V;
 % Configure visualization options
 options = struct();
 options.profileType = 'predefined';  % Enable interactive profile selection
-options.smoothingParams = struct(...
-    'radius', 3, ...        % Smoothing radius
-    'eps', 0.01, ...       % Regularization parameter
-    'order', 2);           % Smoothing order
+% options.smoothingParams = struct(...
+%     'radius', 3, ...        % Smoothing radius
+%     'eps', 0.01, ...       % Regularization parameter
+%     'order', 2);           % Smoothing order
 % N-S profile crossing Baiyan Obo minning area
-% options.profilePoints(:,1) = [76.6927; 76.6927];
-% options.profilePoints(:,2) = [0; 150];
+options.profilePoints(:,1) = [76.6927 76.6927 nan 0 200];
+options.profilePoints(:,2) = [0 150 nan 66.9016 66.9016];
 % E-W profile crossing Baiyan Obo minning area
-options.profilePoints(:,1) = [0; 200];
-options.profilePoints(:,2) = [66.9016; 66.9016];
+% options.profilePoints(:,1) = [0; 200];
+% options.profilePoints(:,2) = [66.9016; 66.9016];
 [profileStruct] = visualizeCCPResults(migResult, gridStruct, options);
