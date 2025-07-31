@@ -21,9 +21,9 @@ function param = setMigParam3D(gridStruct)
     param.fpeak = 1.2;   % do not use, for ricker wave source
     
     param.bc = 1;
-    param.plot = 1;
+    param.plot = 0;
 
-    param.ispred = 1;
+    param.ispred = 0;
 
     %% velocity model
     param.vp = gridStruct.VP;

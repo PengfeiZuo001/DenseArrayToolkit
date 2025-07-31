@@ -110,9 +110,9 @@ MigResult.Y = Y;
 MigResult.Z = Z;
 %% ------------------------------------------------------------------------
 %  (9) Plot migration results
-if param.paramMig.plot
-    plotResults(mig,pre_rfm,lsmig,pre_rflsm,param,mask);
-end
+
+plotResults(mig,pre_rfm,lsmig,pre_rflsm,param,mask);
+
 
 end
 

@@ -76,13 +76,14 @@ dx = 10;    % Horizontal x-direction grid spacing (km)
 dy = 10;    % Horizontal y-direction grid spacing (km)
 dz = 0.5;   % Vertical grid spacing (km) - fine resolution for both methods
 zmax = 100; % Maximum imaging depth (km)
-
+xpad = 50;  % Horizontal padding in x-direction (km)
+ypad = 50;
 % Create 3D imaging grid with identical parameters for both methods
-gridStruct = createGrid(DataStruct, dx, dy, dz, zmax);
+gridStruct = createGrid(DataStruct, dx, dy, dz, zmax, xpad, ypad);
 
 % Create 3D velocity model for both CCP and migration imaging
-npts = 10;
-gridStruct = getVelocityModel('3D', gridStruct, npts);
+
+gridStruct = getVelocityModel('3D', gridStruct);
 
 %% 5. Compute receiver functions
 % Apply deconvolution to extract receiver functions from seismic waveforms
@@ -94,7 +95,8 @@ DataStruct = deconv(DataStruct, DeconvParam);
 % - CCP stacking: Maps receiver functions to conversion points
 % - Migration: Least-squares migration for improved resolution
 % Both methods use identical preprocessing and rank reduction
-
+% Set up 3D migration parameters based on grid structure
+MigParam.paramMig = setMigParam3D(gridStruct);
 % Initialize storage arrays for both methods
 ccp_img = [];      % 3D CCP image results
 ccp_count = [];    % 3D CCP hit count for normalization
@@ -167,7 +169,7 @@ migls_final = sum(mig_imgls,4)./nProcessedEvents;
 
 %% 8. Visualization and comparison
 % Create comprehensive comparison plots
-
+load roma.mat
 % === 3D CCP Image ===
 figure('Name', 'CCP Stacking Results', 'Position', [100, 100, 800, 600]);
 subplot(1,3,1);
