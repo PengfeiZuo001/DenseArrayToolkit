@@ -17,7 +17,7 @@
 % to image subsurface discontinuities and structures.
 
 clear; clc; close all;
-load roma;
+
 %% 0. Setup paths and parameters
 % Initialize the processing environment by adding necessary functions to MATLAB path
 % and loading configuration parameters for various processing steps. The config file
@@ -96,13 +96,9 @@ EventStationTable = getEventStationTable(DataStruct);
 % 4. Interpolate velocity structure onto the imaging grid
 % This velocity model will be used to migrate receiver functions in the CCP stacking.
 % Perform principal component analysis based on station locations to automatically create imaging grid
-dx = 10;
-dy = 10;
-dz = 1;
-zmax = 100;
-xpad = 50;
-ypad = 50;
-gridStruct = createGrid(DataStruct, dx, dy, dz, zmax, xpad, ypad);
+dx = 5;
+dy = 5;
+gridStruct = createGrid(DataStruct, dx, dy);
 % Create or obtain velocity model for use in subsequent imaging
 npts = 10;
 gridStruct = getVelocityModel('3D',gridStruct,npts);
@@ -114,7 +110,7 @@ gridStruct = getVelocityModel('3D',gridStruct,npts);
 % 3. Optional Radon Transform for array processing (currently commented out)
 % 4. Receiver function calculation through deconvolution
 % 5. CCP stacking to create 3D image volume
-%
+% 
 % The results are accumulated across all events to enhance signal-to-noise ratio
 % and improve imaging quality. Two key matrices are maintained:
 % - dimg: Stores the stacked amplitudes
@@ -123,38 +119,38 @@ gridStruct = getVelocityModel('3D',gridStruct,npts);
 dimg = [];    % 4D array to store CCP stacking results (X, Y, Z, Event)
 count = [];   % 4D array tracking number of traces contributing to each point
 nMigratedEvents = 1;    % Counter for successfully processed events
-minTrace = 60; % Minimum number of traces required for CCP imaging
-minSNR = 5;    % Minimum SNR of the RF required for CCP imaging
+
 % Iterate through all events that meet the filtering criteria
 for iEvent = 1:length(eventid)
-    evid = eventid{iEvent};
+    evid = eventid{iEvent}; 
     % Extract the subset of seismic records corresponding to the current event (Common Event Gather)
     gather = getCommonEventGather(DataStruct, evid);
-
-    % Extract the SNR
-    snrAll = cell2mat(cellfun(@(rf) rf.snr, {gather.RF}, 'UniformOutput', false));
-    % Skip events with fewer than 60 valid stations to ensure imaging quality
-    if length(gather) < minTrace || mean(snrAll)< minSNR
+    
+    % Skip if the number of valid stations for the event is less than 60 to ensure imaging quality
+    if length(gather) < 60
         continue
     end
-
-    % Configure and perform deconvolution to compute receiver functions
-    % - radonfilter: Optional array processing step (disabled)
-    % - verbose: Control detailed output during processing
-    DeconvParam.radonfilter = false;  % Disable additional Radon filtering
-    DeconvParam.verbose = false;       % Suppress detailed processing output
-    % Transform seismic recordings into receiver functions through deconvolution
-    % This highlights converted phases from subsurface discontinuities
-    gather = deconv(gather, DeconvParam);
-
+  
+    % Perform Radon Transform for array processing
+%     gather = radonTransform(gather, RadonParam);
+    
+% Configure and perform deconvolution to compute receiver functions
+% - radonfilter: Optional array processing step (disabled)
+% - verbose: Control detailed output during processing
+DeconvParam.radonfilter = false;  % Disable additional Radon filtering
+DeconvParam.verbose = false;       % Suppress detailed processing output
+% Transform seismic recordings into receiver functions through deconvolution
+% This highlights converted phases from subsurface discontinuities
+gather = deconv(gather, DeconvParam);
+    
     % Call CCPCommonEventGather for common conversion point stacking imaging
     ccpResult = CCPCommonEventGather(gather, gridStruct, CCPParam);
     dimg(:,:,:,nMigratedEvents) = ccpResult.img;
     count(:,:,:,nMigratedEvents) = ccpResult.count;
-
+   
     % Close all figure windows to avoid generating too many windows during batch processing
     close all;
-
+    
     nMigratedEvents = nMigratedEvents + 1;
 end
 %% 6. Visualization
@@ -164,7 +160,7 @@ end
 % 3. Apply custom colormap (roma) for optimal visualization
 % 4. Scale color limits based on RMS amplitude
 % 5. Option to select profile lines for cross-sectional views
-%
+% 
 % Note: The profile selection section (ginput) is dependent on user interaction
 % and will create cross-sections along specified profiles using plotCCPXsectionCartesian
 % Prepare final image volume for visualization
@@ -179,7 +175,7 @@ figure;
 % Set up figure window with appropriate size and white background
 set(gcf,'Position',[50 50 800 800],'Color','w')
 % Display orthogonal slices through the volume at X=90km, Y=90km, Z=40km
-h = slice(X,Y,Z,V,90,90,40); hold on;
+h = slice(X,Y,Z,V,90,90,40);
 xlabel('X (km)');
 ylabel('Y (km)');
 zlabel('Z (km)');
@@ -189,21 +185,7 @@ colormap(flipud(roma));
 cmax = rms(V(:));
 caxis([-cmax cmax]);
 view(0,90)
-axis xy;
-axis equal;
 % [xpoints,ypoints] = ginput;
-% define profile location
-profilePoints = [
-91.461	37.47
-91.948	38.168
-93.599	38.782
-93.994	38.681
-95.53531 39.21347];
-% coordinates conversion from lat, lon to the projected coordinate
-[xpoints,ypoints] = latlonToProjectedCoords(profilePoints(:,1), profilePoints(:,2), gridStruct);
-
-plot(xpoints, ypoints, 'ro', 'MarkerSize', 10, 'LineWidth', 2);
-plot(xpoints, ypoints, 'r-', 'LineWidth', 2);
 
 profileAll={};
 for n = 1:length(xpoints)-1
