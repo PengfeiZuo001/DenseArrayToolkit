@@ -94,7 +94,7 @@ DataStruct = deconv(DataStruct, DeconvParam);
 % - CCP stacking: Maps receiver functions to conversion points
 % - Migration: Least-squares migration for improved resolution
 % Both methods use identical preprocessing and rank reduction
-
+MigParam.paramMig = setMigParam3D(gridStruct);e
 % Initialize storage arrays for both methods
 ccp_img = [];      % 3D CCP image results
 ccp_count = [];    % 3D CCP hit count for normalization
