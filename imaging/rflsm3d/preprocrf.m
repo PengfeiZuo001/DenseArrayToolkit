@@ -37,12 +37,11 @@ src = real(src(:))/gnorm;
 src_func = src./max(src(:));
 
 % taper RF to remove later conversions
-% [win] = waveformg_win(src_func,TIME,t1,t2-5,3);
-% win = win*ones(1,size(itr,2));
-% itr = itr.*win;
+[win] = waveform_win(src_func,TIME,t1,t2-5,3);
+win = win*ones(1,size(itr,2));
+itr = itr.*win;
 
 % src_func = gradient(src_func,-0.5);
-figure
-wigb(itr(nt1:nt2,:),1.2,1:x,TIME(nt1:nt2))
+
 
 end

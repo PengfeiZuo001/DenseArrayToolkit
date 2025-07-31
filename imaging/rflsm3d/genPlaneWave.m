@@ -58,26 +58,26 @@ end
 
 
 % ------------------------------------------------------------------------
-% TO CHECK THE TIME
-tmp = rot90(timediff);
-figure
-set(gcf,"Position",[50 50 1300 580],"Color",'white')
-subplot(121)
-imagesc(x,flip(y(:)),tmp)
-axis equal
-xlim([min(x)-30 max(x)+30 ])
-ylim([min(y)-30 max(y)+30 ])
-xlabel('---> X distance')
-ylabel('---> Y distance')
-set(gca,"YDir",'normal');colorbar
-title(['Time Diff: ','Baz ',num2str(back_az),' deg'])
-subplot(122)
-scatter(xo(:),yo(:),80,td(:),'filled','o','MarkerEdgeColor','k')
-axis equal
-xlabel('---> X distance')
-ylabel('---> Y distance')
-set(gca,"YDir",'normal');colorbar
-title(['Time Diff: ','Baz ',num2str(back_az),' deg'])
-xlim([min(xo)-30 max(xo)+30 ])
-ylim([min(yo)-30 max(yo)+30 ])
+% % TO CHECK THE TIME
+% tmp = rot90(timediff);
+% figure
+% set(gcf,"Position",[50 50 1300 580],"Color",'white')
+% subplot(121)
+% imagesc(x,flip(y(:)),tmp)
+% axis equal
+% xlim([min(x)-30 max(x)+30 ])
+% ylim([min(y)-30 max(y)+30 ])
+% xlabel('---> X distance')
+% ylabel('---> Y distance')
+% set(gca,"YDir",'normal');colorbar
+% title(['Time Diff: ','Baz ',num2str(back_az),' deg'])
+% subplot(122)
+% scatter(xo(:),yo(:),80,td(:),'filled','o','MarkerEdgeColor','k')
+% axis equal
+% xlabel('---> X distance')
+% ylabel('---> Y distance')
+% set(gca,"YDir",'normal');colorbar
+% title(['Time Diff: ','Baz ',num2str(back_az),' deg'])
+% xlim([min(xo)-30 max(xo)+30 ])
+% ylim([min(yo)-30 max(yo)+30 ])
 end

@@ -5,7 +5,7 @@ sac<<!
 r $sacfile
 decimate 5
 decimate 2
-w over 
-q
+w over
+quit
 !
 done

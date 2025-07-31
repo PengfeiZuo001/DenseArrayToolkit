@@ -21,6 +21,7 @@ clear; clc; close all;
 % Initialize the processing environment by adding necessary functions and
 % dependencies to the MATLAB path. This ensures access to all required
 % processing routines in the DenseArrayToolkit.
+cd ../
 setupPaths();
 
 % Load configuration file containing essential parameters for data processing,
@@ -84,9 +85,9 @@ EventStationTable = getEventStationTable(DataStruct);
 % 2. Create 3D imaging volume based on array geometry
 % 3. Generate 3D velocity model for migration
 % Note: Using 3D velocity model for accurate ray tracing in volumetric imaging
-dx = 5;    % Horizontal x-direction grid spacing (km)
-dy = 5;    % Horizontal y-direction grid spacing (km)
-dz = 2;     % Vertical grid spacing (km)
+dx = 10;    % Horizontal x-direction grid spacing (km)
+dy = 10;    % Horizontal y-direction grid spacing (km)
+dz = 1;     % Vertical grid spacing (km)
 zmax = 100; % Maximum imaging depth (km)
 xpad = 50;  % Horizontal padding in x-direction (km)
 ypad = 50;  % Horizontal padding in y-direction (km)
@@ -110,8 +111,8 @@ nMigratedEvents = 1;    % Counter for successfully processed events
 % Set up 3D migration parameters based on grid structure
 MigParam.paramMig = setMigParam3D(gridStruct);
 
-minTrace = 100; % Minimum number of traces required for CCP imaging
-minSNR = 5;    % Minimum SNR of the RF required for CCP imaging
+minTrace = 50; % Minimum number of traces required for CCP imaging
+minSNR = 0;    % Minimum SNR of the RF required for CCP imaging
 
 % Process each event in the dataset
 for iEvent = 1:length(eventid)
@@ -140,7 +141,7 @@ for iEvent = 1:length(eventid)
 
     % Perform 3D least-squares migration
     % This method provides improved resolution compared to standard migration
-    migResult = leastSquaresMig3D(gatherReconstructed, gridStruct, MigParam);
+    migResult = leastSquaresMig3D(gather, gridStruct, MigParam);
 
     % Store migration results for current event
     % mig - Standard 3D migration results
@@ -155,9 +156,9 @@ for iEvent = 1:length(eventid)
     nMigratedEvents = nMigratedEvents + 1;
 end
 %% 6. Visualization
-V = zeros(size(mig(1).mig));
+V = zeros(size(mig(1).migls));
 for n=1:length(mig)
-    V = V+mig(n).mig;
+    V = V+mig(n).migls;
 end
 V = V/length(mig);
 V = permute(V,[3,2,1]);
@@ -179,4 +180,5 @@ options.profilePoints(:,2) = [0 150 nan 66.9016 66.9016];
 % E-W profile crossing Baiyan Obo minning area
 % options.profilePoints(:,1) = [0; 200];
 % options.profilePoints(:,2) = [66.9016; 66.9016];
+
 [profileStruct] = visualizeCCPResults(migResult, gridStruct, options);

@@ -12,16 +12,8 @@ function [rfshift,src_func,mask] = shiftRFs(rf0,take_off,back_az,xo,yo,x,y,rx,ry
     src_type = param.src_type;
     fpeak = param.fpeak;
 
-%     xo = gridStruct.XInOriginalCoord(:);
-%     yo = gridStruct.YInOriginalCoord(:);
-
-%     x = gridStruct.x; 
-%     y = gridStruct.y;
     dx = param.dx;
     dy = param.dy;
-
-%     rx = gridStruct.rx(:,1);
-%     ry = gridStruct.ry(:,2);
     
     isplot = param.plot;
     
