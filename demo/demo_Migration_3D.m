@@ -85,8 +85,8 @@ EventStationTable = getEventStationTable(DataStruct);
 % 2. Create 3D imaging volume based on array geometry
 % 3. Generate 3D velocity model for migration
 % Note: Using 3D velocity model for accurate ray tracing in volumetric imaging
-dx = 10;    % Horizontal x-direction grid spacing (km)
-dy = 10;    % Horizontal y-direction grid spacing (km)
+dx = 5;    % Horizontal x-direction grid spacing (km)
+dy = 5;    % Horizontal y-direction grid spacing (km)
 dz = 1;     % Vertical grid spacing (km)
 zmax = 100; % Maximum imaging depth (km)
 xpad = 50;  % Horizontal padding in x-direction (km)
@@ -96,7 +96,18 @@ ypad = 50;  % Horizontal padding in y-direction (km)
 gridStruct = createGrid(DataStruct, dx, dy, dz, zmax, xpad, ypad);
 
 % Create 3D velocity model for migration imaging
-gridStruct = getVelocityModel('3D', gridStruct);
+npts = 5;
+gridStruct = getVelocityModel('3D', gridStruct, npts);
+
+%% update param of rank reduction
+% note: regular grid is greater than stations (rx,ry)
+RankReductionParam.nx = gridStruct.nx;
+RankReductionParam.ny = gridStruct.ny;
+RankReductionParam.ox = min(gridStruct.x); 
+RankReductionParam.oy = min(gridStruct.y); 
+RankReductionParam.mx = max(gridStruct.x);
+RankReductionParam.my = max(gridStruct.y);
+RankReductionParam.rank = 10;
 
 %% 5. Migration imaging
 % Perform 3D least-squares migration with rank reduction preprocessing:
@@ -136,9 +147,10 @@ for iEvent = 1:length(eventid)
 
     % Apply rank reduction preprocessing to improve signal quality
     % This helps suppress noise and enhance coherent signals
-    RankReductionParam.rank = 10;
-    [gatherReconstructed, d1_otg] = rankReduction(gather, gridStruct, RankReductionParam);
-
+    if MigParam.paramMig.isReconRFs
+        [gather, d1_otg] = rankReduction_new(gather, gridStruct, RankReductionParam);
+        MigParam.paramMig.dotg = d1_otg;
+    end
     % Perform 3D least-squares migration
     % This method provides improved resolution compared to standard migration
     migResult = leastSquaresMig3D(gather, gridStruct, MigParam);
@@ -156,9 +168,9 @@ for iEvent = 1:length(eventid)
     nMigratedEvents = nMigratedEvents + 1;
 end
 %% 6. Visualization
-V = zeros(size(mig(1).migls));
+V = zeros(size(mig(1).mig));
 for n=1:length(mig)
-    V = V+mig(n).migls;
+    V = V+mig(n).mig;
 end
 V = V/length(mig);
 V = permute(V,[3,2,1]);
@@ -182,3 +194,11 @@ options.profilePoints(:,2) = [0 150 nan 66.9016 66.9016];
 % options.profilePoints(:,2) = [66.9016; 66.9016];
 
 [profileStruct] = visualizeCCPResults(migResult, gridStruct, options);
+
+% pointA = [76.6927, 66.9016, 0]; % 点A (x1,y1,z1)
+% pointB = [76.6927, 66.9016, 100]; % 点B (x2,y2,z2)
+% lx = [pointA(1), pointB(1)];
+% ly = [pointA(2), pointB(2)];
+% lz = [pointA(3), pointB(3)];
+% hold on;
+% plot3(lx, ly, lz, '--','LineWidth', 2,'Color', [0.5 0.5 0.5]);

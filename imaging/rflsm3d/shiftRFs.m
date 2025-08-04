@@ -19,6 +19,16 @@ function [rfshift,src_func,mask] = shiftRFs(rf0,take_off,back_az,xo,yo,x,y,rx,ry
     
     %% prepeocess and extract wavelet
     [rf1,src_func] = preprocrf(rf0,param);
+    rfshift0 = zeros(nt,nx,ny);     % only for plotting
+    [rftmp0,mask] = doBinning(rf0, rx, ry, x, y,nx,ny, dx, dy);
+    
+    %% 
+    if param.isReconRFs
+        rftmp = param.dotg;
+    else
+        rfshift = zeros(nt,nx,ny);
+        [rftmp,~] = doBinning(rf1, rx, ry, x, y, nx,ny, dx, dy);
+    end
     
     %% generate plane wave
     dsrc = genPlaneWave(src_func,take_off,back_az,xo,yo,x,y,vp,nt,dt,src_type,fpeak);
@@ -30,12 +40,6 @@ function [rfshift,src_func,mask] = shiftRFs(rf0,take_off,back_az,xo,yo,x,y,rx,ry
     
     %% apply time diff to rf using cross correlation
     % cross correlate P wave with RF
-    rfshift0 = zeros(nt,nx,ny);     % only for plotting
-    rfshift = zeros(nt,nx,ny);
-    [rftmp0,mask] = doBinning(rf0, rx, ry, x, y,nx,ny, dx, dy);
-    [rftmp,~] = doBinning(rf1, rx, ry, x, y, nx,ny, dx, dy);
-
-%     tdelayAll = zeros(nx,ny);
     it = (0:nt-1)*dt;
     for i = 1:nx
         for j = 1:ny
@@ -50,7 +54,7 @@ function [rfshift,src_func,mask] = shiftRFs(rf0,take_off,back_az,xo,yo,x,y,rx,ry
     
             % phase only cross correlation
 %             [tdelay, ~, ~] = phase_only_correlation_simple(sig1, sig2, dt);
-            tdelayAll(i,j) = tdelay;
+
             % shift receiver function which locate at the regular grid
             rfshift0(:,i,j) = fftShift(rftmp0(:,i,j),it,tdelay);
             rfshift(:,i,j) = fftShift(rftmp(:,i,j),it,tdelay);
