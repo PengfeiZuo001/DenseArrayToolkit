@@ -28,5 +28,8 @@ function param = setMigParam3D(gridStruct)
     %% velocity model
     param.vp = gridStruct.VP;
     param.vs = gridStruct.VS;
+
+    %% reconstruction or not
+    param.isReconRFs = 1;
     
 end

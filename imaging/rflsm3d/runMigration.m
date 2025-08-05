@@ -8,7 +8,6 @@ function [mig,dp] = runMigration(rfshift,take_off,back_az,src_func,save_wavefiel
     x = gridStruct.x;             
     y = gridStruct.y;
 
-
     dt = param.dt;
     nt = param.nt;
     vp = param.vp;

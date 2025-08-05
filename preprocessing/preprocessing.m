@@ -258,7 +258,7 @@ if isempty(dt) || dt <= 0
 end
 
 % Define the time windows
-noiseStart = p_time - 105; 
+noiseStart = p_time - 55; 
 noiseEnd   = p_time -   5;
 sigStart   = p_time -   5;
 sigEnd     = p_time +   5;
