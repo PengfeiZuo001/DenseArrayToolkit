@@ -1,11 +1,14 @@
 function [itr,src_func] = preprocrf(rf0,param)
 
 TIME = param.Ti;
+dt = param.dt;
+nt = param.nt;
 t1 = -3;
 t2 = 20;
-dt = param.dt;
-nt1 = abs(t1)/dt;
-nt2 = t2/dt;
+% t2 = t1+nt*dt;
+
+% nt1 = abs(t1)/dt;
+% nt2 = t2/dt;
 x = size(rf0,2);
 
 % normaliztion
@@ -37,7 +40,7 @@ src = real(src(:))/gnorm;
 src_func = src./max(src(:));
 
 % taper RF to remove later conversions
-[win] = waveform_win(src_func,TIME,t1,t2-5,3);
+[win] = waveform_win(src_func,TIME,t1,t2,0.5);
 win = win*ones(1,size(itr,2));
 itr = itr.*win;
 

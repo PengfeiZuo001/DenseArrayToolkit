@@ -85,12 +85,12 @@ EventStationTable = getEventStationTable(DataStruct);
 % 2. Create 3D imaging volume based on array geometry
 % 3. Generate 3D velocity model for migration
 % Note: Using 3D velocity model for accurate ray tracing in volumetric imaging
-dx = 5;    % Horizontal x-direction grid spacing (km)
-dy = 5;    % Horizontal y-direction grid spacing (km)
+dx = 10;    % Horizontal x-direction grid spacing (km)
+dy = 10;    % Horizontal y-direction grid spacing (km)
 dz = 1;     % Vertical grid spacing (km)
 zmax = 100; % Maximum imaging depth (km)
-xpad = 50;  % Horizontal padding in x-direction (km)
-ypad = 50;  % Horizontal padding in y-direction (km)
+xpad = 20;  % Horizontal padding in x-direction (km)
+ypad = 20;  % Horizontal padding in y-direction (km)
 
 % Create 3D imaging grid with specified parameters
 gridStruct = createGrid(DataStruct, dx, dy, dz, zmax, xpad, ypad);
@@ -101,6 +101,7 @@ gridStruct = getVelocityModel('3D', gridStruct, npts);
 
 %% update param of rank reduction
 % note: regular grid is greater than stations (rx,ry)
+% This part needs to be updated to make it more concise!!!
 RankReductionParam.nx = gridStruct.nx;
 RankReductionParam.ny = gridStruct.ny;
 RankReductionParam.ox = min(gridStruct.x); 
@@ -116,15 +117,18 @@ RankReductionParam.rank = 10;
 % - Rank reduction preprocessing for noise suppression
 %
 % Initialize structure to store migration results farom all events
-mig = [];
+% migResults = [];
+ccpResults = [];
 nMigratedEvents = 1;    % Counter for successfully processed events
 
 % Set up 3D migration parameters based on grid structure
 MigParam.paramMig = setMigParam3D(gridStruct);
 
-minTrace = 50; % Minimum number of traces required for CCP imaging
-minSNR = 0;    % Minimum SNR of the RF required for CCP imaging
+minTrace = 100; % Minimum number of traces required for CCP imaging
+minSNR = 3;    % Minimum SNR of the RF required for CCP imaging
 
+dimg = [];
+count = [];
 % Process each event in the dataset
 for iEvent = 1:length(eventid)
     evid = eventid{iEvent}; 
@@ -147,19 +151,59 @@ for iEvent = 1:length(eventid)
 
     % Apply rank reduction preprocessing to improve signal quality
     % This helps suppress noise and enhance coherent signals
+    MigParam.paramMig.isReconRFs=1;
+    MigParam.gauss = 5;
     if MigParam.paramMig.isReconRFs
-        [gather, d1_otg] = rankReduction_new(gather, gridStruct, RankReductionParam);
+        RankReductionParam.rank = 5;
+        RankReductionParam.fhigh = 2.4;
+        [gatherDRR, d1_otg] = rankReduction_new(gather, gridStruct, RankReductionParam);
         MigParam.paramMig.dotg = d1_otg;
+        itrCell = {gather.RF};
+        d0 = cell2mat(cellfun(@(rf) rf.itr, itrCell,'UniformOutput', false));
+        itrCell = {gatherDRR.RF};
+        d1 = cell2mat(cellfun(@(rf) rf.itr, itrCell,'UniformOutput', false));
+        t = gather(1).RF.ittime;
+        figure;
+        set(gcf,'Position',[100 100 1200 600],'Color','w')
+        ax1=subplot(121);
+        imagesc(1:length(gather),t(30:300),d0(30:300,:))
+        caxis([-0.1 0.1])
+        colormap(seismic(1))
+        xlabel('Trace Number')
+        ylabel('Time (s)')
+        set(ax1,'fontsize',14)
+        ax2=subplot(122);
+        imagesc(1:length(gather),t(30:300),d1(30:300,:))
+        caxis([-0.1 0.1])
+        xlabel('Trace Number')
+        ylabel('Time (s)')
+        set(ax2,'fontsize',14)
+        export_fig(['./figures/BY_rank_',num2str(evid),'.png'], '-r300');
+
+        figure;
+        d3d = permute(d1_otg,[2,3,1]);
+        [nx,ny,nt] = size(d3d);
+        h=slice(d3d,round(ny/2),round(nx/2),80);
+        set(h,'EdgeColor','none');
+        colormap(seismic(1))
+        set(gca,'ZDir','reverse')
+        caxis([-0.1 0.1])
+        zlim([0 300])
+        export_fig(['./figures/BY_rank_3D_',num2str(evid),'.png'], '-r300');
     end
     % Perform 3D least-squares migration
     % This method provides improved resolution compared to standard migration
-    migResult = leastSquaresMig3D(gather, gridStruct, MigParam);
+    migResult = leastSquaresMig3D(gatherDRR, gridStruct, MigParam);
 
     % Store migration results for current event
     % mig - Standard 3D migration results
     % migls - 3D least-squares migration results
-    mig = [mig; migResult];
-    
+    migResults = [migResults; migResult];
+ 
+
+    ccpResult = CCPCommonEventGather(gatherDRR, gridStruct, CCPParam);
+    ccpResults = [ccpResults; ccpResult];
+
     % Pause for visualization (can be removed for batch processing)
 %     pause;
     
@@ -168,17 +212,21 @@ for iEvent = 1:length(eventid)
     nMigratedEvents = nMigratedEvents + 1;
 end
 %% 6. Visualization
-V = zeros(size(mig(1).mig));
-for n=1:length(mig)
-    V = V+mig(n).mig;
+V = zeros(size(migResults(1).mig));
+for n=1:length(migResults)
+    V = V+migResults(n).migls;
 end
-V = V/length(mig);
+V = V/length(migResults);
 V = permute(V,[3,2,1]);
-X = mig.X;
-Y = mig.Y;
-Z = mig.Z;
-
 migResult.V = V;
+
+count = 0;
+for n=1:length(ccpResults)
+    V = V+ccpResults(n).img;
+    count = count+ccpResults(n).count;
+end
+ccpResult.V = V./max(count,1);
+
 % Configure visualization options
 options = struct();
 options.profileType = 'predefined';  % Enable interactive profile selection
@@ -194,7 +242,7 @@ options.profilePoints(:,2) = [0 150 nan 66.9016 66.9016];
 % options.profilePoints(:,2) = [66.9016; 66.9016];
 
 [profileStruct] = visualizeCCPResults(migResult, gridStruct, options);
-
+[profileStruct] = visualizeCCPResults(ccpResult, gridStruct, options);
 % pointA = [76.6927, 66.9016, 0]; % 点A (x1,y1,z1)
 % pointB = [76.6927, 66.9016, 100]; % 点B (x2,y2,z2)
 % lx = [pointA(1), pointB(1)];

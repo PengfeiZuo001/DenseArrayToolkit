@@ -1,4 +1,4 @@
-function DataStruct = radonTransform(DataStruct, param)
+function DataStruct = radonTransform(DataStruct, gridStruct, param)
 % RADONTRANSFORM  Perform Radon Transform-based array processing on DataStruct.
 %
 % Usage:
@@ -21,7 +21,10 @@ function DataStruct = radonTransform(DataStruct, param)
 %       .N1        (default: 30)     - Iterations for CG solver
 %       .N2        (default: 1)      - Sparse solution weight
 %       .plotRadon (default: false)  - Flag to plot Radon results
-%
+%       .order     (default: postdecon) - Apply of filtering before or
+%                                         after deconvolution
+%   gridStruct: struct array with grid information
+
 % Output:
 %   DataStruct : The updated struct array. For each trace that belongs
 %                to an event with enough traces, the field:
@@ -46,31 +49,32 @@ if ~isfield(param, 'minTraces'),  param.minTraces  = 60;    end
 if ~isfield(param, 'N1'),         param.N1         = 30;    end
 if ~isfield(param, 'N2'),         param.N2         = 1;     end
 if ~isfield(param, 'plotRadon'),  param.plotRadon  = false; end
+if ~isfield(param, 'order'),  param.order  = 'postdecon'; end
 
 % Basic field checks (on the first element, assuming consistent struct array)
 requiredTopLevel = {'EventInfo','Waveforms','TravelInfo','RF'};
 for f = requiredTopLevel
     if ~isfield(DataStruct, f{1})
         error('radonTransform:MissingField',...
-              'DataStruct must contain the field %s in each element.', f{1});
+            'DataStruct must contain the field %s in each element.', f{1});
     end
 end
 if ~isfield(DataStruct(1).EventInfo, 'evid')
     error('radonTransform:MissingField',...
-          'DataStruct.EventInfo must contain field: evid.');
+        'DataStruct.EventInfo must contain field: evid.');
 end
 if ~isfield(DataStruct(1).Waveforms, 'dataProcessed')
     error('radonTransform:MissingField',...
-          'DataStruct.Waveforms must contain field: dataProcessed.');
+        'DataStruct.Waveforms must contain field: dataProcessed.');
 end
 if ~isfield(DataStruct(1).TravelInfo, 'distDeg')
     error('radonTransform:MissingField',...
-          'DataStruct.TravelInfo must contain field: distDeg.');
+        'DataStruct.TravelInfo must contain field: distDeg.');
 end
 
 %% 2. Radon Parameter Setup
 % Define a slowness axis (s/km). Adjust # of samples if needed:
-p = linspace(param.pmin, param.pmax, 20); 
+p = linspace(param.pmin, param.pmax, 50);
 np = length(p);
 
 % Create Param structure to pass to yc_pcg() or radon_op()
@@ -86,7 +90,7 @@ eventIDs = {eventListStruct.evid};
 for iEvt = 1:length(eventIDs)
     eventID = eventIDs{iEvt};
     [commonEventGather, matchIndex] = getCommonEventGather(DataStruct, eventID);
-    
+
     % Check if enough traces are available for Radon transform
     if length(commonEventGather) < param.minTraces
         skipMsg = sprintf('[RadonTransform] Event %s skipped: only %d traces (< %d).',...
@@ -110,54 +114,72 @@ for iEvt = 1:length(eventIDs)
     end
 
     % Convert offsets to h = distance - min(distance)
-    h = dist - min(dist);
+    %     h = dist - min(dist);
+    %     [h,idx] = sort(h);
+
+    % use the projected station locaiton on principle axis to define the
+    % distance vector
+    stationList = getStations(DataStruct);
+    stlo = [stationList.stlo]';  % 台站经度
+    stla = [stationList.stla]';  % 台站纬度
+    [h, ~] = latlonToProjectedCoords(stlo,stla, gridStruct);
     [h,idx] = sort(h);
     commonEventGather = commonEventGather(idx);
 
     %% 4.1 Extract and Preprocess Waveforms
     [d_z, d_r, d_t, t, dt] = extractAndPreprocessWaveforms(commonEventGather,...
         param.lows, param.highs);
+    trace_energy = rms(d_z);
+    % remove traces with anomalous amplitude
+    remove_idx = trace_energy > mean(trace_energy) + 2*std(trace_energy);
+    d_z(:,remove_idx) = 0;
+    d_r(:,remove_idx) = 0;
 
-    %% Set radon parameter
-    Param.h  = h;       % required by radon_op
-    Param.v  = 1./p;    % just for illustration if radon_op uses velocity
-    Param.nt = length(t);
-    Param.dt = dt;
-    Param.type = 1;     % might indicate forward/backward radon in radon_op
+    switch param.order
+        case 'predecon'
+            %% Set radon parameter
+            Param.h  = h;       % required by radon_op
+            Param.v  = 1./p;    % just for illustration if radon_op uses velocity
+            Param.nt = length(t);
+            Param.dt = dt;
+            Param.type = 1;     % might indicate forward/backward radon in radon_op
 
-    % Preallocate transform model "ma"
-    ma = zeros(Param.nt, np);
-    %% 4.3 Perform Radon Transform on Z
-    try
-        % Initialize the model with zeros
-        mi_z = yc_pcg(@radon_op, Param, d_z, ma, param.N1, param.N2, 1);
-        dp_z = radon_op(mi_z, Param, 1);  % forward modeling from the found model
+            % Preallocate transform model "ma"
+            ma = zeros(Param.nt, np);
+            %% 4.3 Perform Radon Transform on Z
+            try
+                % Initialize the model with zeros
+                mi_z = yc_pcg(@radon_op, Param, d_z, ma, param.N1, param.N2, 1);
+                dp_z = radon_op(mi_z, Param, 1);  % forward modeling from the found model
+                %         figure;
+                %         wigb([d_z dp_z]);
 
-    catch ME
-        warnMsg = sprintf('[RadonTransform] Event %s, Z-component failed: %s', ...
-            eventID, ME.message);
-        warning(warnMsg);
-        commonEventGather = appendHistory(commonEventGather, warnMsg);
-        DataStruct(matchIndex) = commonEventGather;
-        continue;
-    end
+            catch ME
+                warnMsg = sprintf('[RadonTransform] Event %s, Z-component failed: %s', ...
+                    eventID, ME.message);
+                warning(warnMsg);
+                commonEventGather = appendHistory(commonEventGather, warnMsg);
+                DataStruct(matchIndex) = commonEventGather;
+                continue;
+            end
 
-    %% 4.4 Perform Radon Transform on R
-    try
-        mi_r = yc_pcg(@radon_op, Param, d_r, ma, param.N1, param.N2, 1);
-        dp_r = radon_op(mi_r, Param, 1);
-    catch ME
-        warnMsg = sprintf('[RadonTransform] Event %s, R-component failed: %s', ...
-            eventID, ME.message);
-        warning(warnMsg);
-        commonEventGather = appendHistory(commonEventGather, warnMsg);
-        DataStruct(matchIndex) = commonEventGather;
-        continue;
-    end
+            %% 4.4 Perform Radon Transform on R
+            try
+                Param.h = h;
+                mi_r = yc_pcg(@radon_op, Param, d_r, ma, param.N1, param.N2, 1);
+                dp_r = radon_op(mi_r, Param, 1);
 
-    %% 4.5 (Optional) Perform Radon Transform on T
-    % Here it's commented out, but you can activate if needed:
-    %{
+            catch ME
+                warnMsg = sprintf('[RadonTransform] Event %s, R-component failed: %s', ...
+                    eventID, ME.message);
+                warning(warnMsg);
+                commonEventGather = appendHistory(commonEventGather, warnMsg);
+                DataStruct(matchIndex) = commonEventGather;
+                continue;
+            end
+            %% 4.5 (Optional) Perform Radon Transform on T
+            % Here it's commented out, but you can activate if needed:
+            %{
     try
         mi_t = yc_pcg(@radon_op, Param, d_t, ma, param.N1, param.N2, 1);
         dp_t = radon_op(mi_t, Param, 1);
@@ -169,34 +191,76 @@ for iEvt = 1:length(eventIDs)
         DataStruct(matchIndex) = commonEventGather;
         continue;
     end
-    %}
+            %}
 
-    %% 4.6 Store Radon-Filtered Waveforms
-    % If dp_t is not computed, you can fill T with zeros or skip entirely
-    for n = 1:length(commonEventGather)
-        % Initialize dataRadonFiltered if needed
-        ntData = size(d_z,1);  % or length(t)
-        commonEventGather(n).Waveforms.dataRadonFiltered = zeros(ntData, 3);
+            %% 4.6 Store Radon-Filtered Waveforms
+            % If dp_t is not computed, you can fill T with zeros or skip entirely
+            for n = 1:length(commonEventGather)
+                % Initialize dataRadonFiltered if needed
+                ntData = size(d_z,1);  % or length(t)
+                commonEventGather(n).Waveforms.dataRadonFiltered = zeros(ntData, 3);
 
-        % T = dp_t(:,n), or zeros if T not used
-        commonEventGather(n).Waveforms.dataRadonFiltered(:,1) = 0; 
-        % R
-        commonEventGather(n).Waveforms.dataRadonFiltered(:,2) = dp_r(:,n);
-        % Z
-        commonEventGather(n).Waveforms.dataRadonFiltered(:,3) = dp_z(:,n);
-    end
+                % T = dp_t(:,n), or zeros if T not used
+                commonEventGather(n).Waveforms.dataRadonFiltered(:,1) = 0;
+                % R
+                commonEventGather(n).Waveforms.dataRadonFiltered(:,2) = dp_r(:,n);
+                % Z
+                commonEventGather(n).Waveforms.dataRadonFiltered(:,3) = dp_z(:,n);
+            end
 
-    % Log the successful Radon transform
-    successMsg = sprintf('[RadonTransform] Event %s: Radon transform applied (%d traces).',...
-        eventID, length(commonEventGather));
-    commonEventGather = appendHistory(commonEventGather, successMsg);
+            % Log the successful Radon transform
+            successMsg = sprintf('[RadonTransform] Event %s: Radon transform applied (%d traces).',...
+                eventID, length(commonEventGather));
+            commonEventGather = appendHistory(commonEventGather, successMsg);
 
-    % Place updated event gather back into DataStruct
-    DataStruct(matchIndex) = commonEventGather;
+            % Place updated event gather back into DataStruct
+            DataStruct(matchIndex) = commonEventGather;
 
-    %% 4.7 Optional: Plot Radon Results
-    if param.plotRadon
-        plotRadonResults(d_z, d_r, dp_z, dp_r, h, t, eventID);
+            %% 4.7 Optional: Plot Radon Results
+            if param.plotRadon
+                plotRadonResults(d_z, d_r, dp_z, dp_r, h, t, eventID);
+            end
+        case 'postdecon'
+            %% Perform Radon Transform on RF
+            itrCell = {commonEventGather.RF};
+            d = cell2mat(cellfun(@(rf) rf.itr, itrCell,'UniformOutput', false));
+            d(:,remove_idx) = 0;
+            t = commonEventGather(1).RF.ittime;
+            Param.h  = h;       % required by radon_op
+            Param.v  = 1./p;    % just for illustration if radon_op uses velocity
+            Param.nt = length(t);
+            Param.dt = dt;
+            Param.type = 1;     % might indicate forward/backward radon in radon_op
+
+            % Preallocate transform model "ma"
+            ma = zeros(Param.nt, np);
+
+            try
+                % Initialize the model with zeros
+                mi = yc_pcg(@radon_op, Param, d, ma, param.N1, param.N2, 1);
+                dp = radon_op(mi, Param, 1);  % forward modeling from the found model
+
+            catch ME
+                warnMsg = sprintf('[RadonTransform] Event %s, RF failed: %s', ...
+                    eventID, ME.message);
+                warning(warnMsg);
+                commonEventGather = appendHistory(commonEventGather, warnMsg);
+                DataStruct(matchIndex) = commonEventGather;
+                continue;
+            end
+
+           for n = 1:length(commonEventGather)
+                % save RF
+                commonEventGather(n).RF.itr = dp(:,n);
+            end
+
+            % Log the successful Radon transform
+            successMsg = sprintf('[RadonTransform] Event %s: Radon transform applied (%d traces).',...
+                eventID, length(commonEventGather));
+            commonEventGather = appendHistory(commonEventGather, successMsg);
+
+            % Place updated event gather back into DataStruct
+            DataStruct(matchIndex) = commonEventGather;
     end
 end
 
@@ -285,13 +349,15 @@ cmax_z = 3 * rms(dp_z(:));
 cmax_r = 3 * rms(dp_r(:));
 
 figure('Name', sprintf('Radon Results for Event %s', eventID), ...
-       'Position', [100, 100, 1200, 800], 'Color', 'w');
+    'Position', [100, 100, 1200, 800], 'Color', 'w');
 
-% Raw Z
+% Raw Zs
 subplot(2,3,1);
 imagesc(h, t, d_z);
 colormap(seismic(1));
 caxis([-cmax_z cmax_z]);
+ylim([t(250),t(550)])
+% wigb(d_z,1,h,t)
 xlabel('Distance (km)'); ylabel('Time (s)');
 title('Raw Z'); set(gca, 'FontSize', 12);
 
@@ -300,6 +366,8 @@ subplot(2,3,2);
 imagesc(h, t, dp_z);
 colormap(seismic(1));
 caxis([-cmax_z cmax_z]);
+ylim([t(250),t(550)])
+% wigb(dp_z,1,h,t)
 xlabel('Distance (km)'); ylabel('Time (s)');
 title('Radon Z'); set(gca, 'FontSize', 12);
 
@@ -308,6 +376,8 @@ subplot(2,3,3);
 imagesc(h, t, d_z - dp_z);
 colormap(seismic(1));
 caxis([-cmax_z cmax_z]);
+ylim([t(250),t(550)])
+% wigb(d_z-dp_z,1,h,t)
 xlabel('Distance (km)'); ylabel('Time (s)');
 title('Removed Noise (Z)'); set(gca, 'FontSize', 12);
 
@@ -316,6 +386,8 @@ subplot(2,3,4);
 imagesc(h, t, d_r);
 colormap(seismic(1));
 caxis([-cmax_r cmax_r]);
+ylim([t(250),t(550)])
+% wigb(d_r,1,h,t)
 xlabel('Distance (km)'); ylabel('Time (s)');
 title('Raw R'); set(gca, 'FontSize', 12);
 
@@ -324,6 +396,8 @@ subplot(2,3,5);
 imagesc(h, t, dp_r);
 colormap(seismic(1));
 caxis([-cmax_r cmax_r]);
+ylim([t(250),t(550)])
+% wigb(dp_r,1,h,t)
 xlabel('Distance (km)'); ylabel('Time (s)');
 title('Radon R'); set(gca, 'FontSize', 12);
 
@@ -332,6 +406,8 @@ subplot(2,3,6);
 imagesc(h, t, d_r - dp_r);
 colormap(seismic(1));
 caxis([-cmax_r cmax_r]);
+ylim([t(250),t(550)])
+% wigb(d_r-dp_r,1,h,t)
 xlabel('Distance (km)'); ylabel('Time (s)');
 title('Removed Noise (R)'); set(gca, 'FontSize', 12);
 end

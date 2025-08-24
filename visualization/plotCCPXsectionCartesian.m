@@ -7,8 +7,8 @@ depth0 = 0:0.5:max(Z(:));
 % load colormap
 cmap = load('./visualization/colormap/roma.mat');
 % load DEM
-% dem = load('./visualization/Qaidam_DEM.mat');
-dem = load('./visualization/Baiyanebo_DEM_small.mat');
+dem = load('./visualization/Qaidam_DEM.mat');
+% dem = load('./visualization/Baiyanebo_DEM_small.mat');
 demX = X(:,:,1);
 demY = Y(:,:,1);
 [nx,ny] = size(demX);
@@ -22,7 +22,7 @@ ax1 = subplot(1,1,1);
 hold on;
 h = slice(X,Y,Z,V,[],[],100);
 colormap(ax1, flipud(cmap.roma));  % 为波形数据设置不同的色标
-cmax = rms(V(:));  % 计算色标的最大值
+cmax = 2*rms(V(:));  % 计算色标的最大值
 caxis([-cmax, cmax]);  % 设置波形数据的色标范围
 % colorbar;  % 为波形数据显示colorbar
 
@@ -66,9 +66,9 @@ for n = 1:length(profile)
     surface(X_profile,Y_profile,Z_profile,Vprofile,'EdgeColor','none')
 
     colormap(flipud(cmap.roma))
-    cmax = rms(Vprofile(:));
-%     caxis([-cmax,cmax]);
-    caxis([-0.1 0.1])
+    cmax = 2*rms(Vprofile(:));
+    caxis([-cmax,cmax]);
+%     caxis([-0.025 0.025])
     
     grid on; box on;
     view(140,20)

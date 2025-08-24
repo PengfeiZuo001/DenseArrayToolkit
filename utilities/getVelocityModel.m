@@ -79,7 +79,7 @@ switch ModelType
                 % Get velocity model at current location
                 lat = latall(i);
                 lon = lonall(j);
-% note that                 m0 starts at 0 km depth. The elevation infomration is
+                % note that m0 starts at 0 km depth. The elevation infomration is
                 % missing, to include topography set if_topo to 1
                 % if_topo = 1;
                 % [m0,~] = obtain_crust1_v2(lat,lon,[],if_topo);
@@ -120,8 +120,8 @@ switch ModelType
         end
 
         % Create interpolants for the 3D velocity model
-        Fvp = scatteredInterpolant(X, Y, Z, VP);
-        Fvs = scatteredInterpolant(X, Y, Z, VS);
+        Fvp = scatteredInterpolant(X, Y, Z, VP, 'linear', 'nearest');
+        Fvs = scatteredInterpolant(X, Y, Z, VS, 'linear', 'nearest');
 
         % Compute velocities at grid points
         % [X, Y, Z] = meshgrid(gridStruct.x, gridStruct.y, gridStruct.z);
@@ -145,9 +145,9 @@ switch ModelType
         vgrid1 = [projection_on_principal_axis,zeros(size(projection_on_principal_axis))];
         vgrid2 = [zeros(size(projection_on_secondary_axis)),projection_on_secondary_axis];
 
-        %% 
-        F1 = scatteredInterpolant(vgrid1(:,1), vgrid2(:,2), Z, Fvp.Values);
-        F2 = scatteredInterpolant(vgrid1(:,1), vgrid2(:,2), Z, Fvs.Values);
+        %% interpolate to get velocities at the grid points
+        F1 = scatteredInterpolant(vgrid1(:,1), vgrid2(:,2), Z, Fvp.Values, 'linear', 'nearest');
+        F2 = scatteredInterpolant(vgrid1(:,1), vgrid2(:,2), Z, Fvs.Values, 'linear', 'nearest');
 
         xq = repmat(gridStruct.x,gridStruct.nz,1);
         xq = xq(:);
@@ -162,6 +162,34 @@ switch ModelType
         
         gridStruct.VP = reshape(v1,gridStruct.nz,gridStruct.nx,gridStruct.ny);
         gridStruct.VS = reshape(v2,gridStruct.nz,gridStruct.nx,gridStruct.ny);
+
+        %% plot velocity model at 40 km depth
+        figure;
+        set(gcf,'Position',[0 0 1000 1000],'Color','w')
+        hold on;
+        
+        idx = gridStruct.z == 40;
+        V = squeeze(gridStruct.VS(idx,:,:));
+        hm = pcolor(gridStruct.XInOriginalCoord,gridStruct.YInOriginalCoord,V');
+        set(hm,'EdgeColor','none')
+        cm = colormap('jet');
+        colormap(flipud(cm));
+        % 绘制台站的位置
+        scatter(gridStruct.stationX, gridStruct.stationY, 50,'r^', 'filled', 'DisplayName', 'Stations','MarkerEdgeColor','k');
+       
+        % 绘制网格点的位置
+        scatter(gridStruct.XInOriginalCoord(:), gridStruct.YInOriginalCoord(:), 10, 'k', 'filled', ...
+            'DisplayName', 'Grid Points');
+        
+        % 设置图形
+        xlabel('X (km)');
+        ylabel('Y (km)');
+%         legend('show','Location','best');
+%         axis equal;
+        grid on;
+        title('Velocity model');
+        hold off;
+        set(gca,'fontsize',14)
 
 
 end

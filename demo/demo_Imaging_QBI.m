@@ -72,7 +72,12 @@ evla = [eventList.evla]';    % Event epicenter latitude
 evlo = [eventList.evlo]';    % Event epicenter longitude
 
 % List of unique event identifiers
-eventid = {eventList.evid};
+% eventid = {eventList.evid};
+
+% load good events
+fid = fopen('good_evt_new_id.txt','r');
+C = textscan(fid,'%s');
+eventid = C{1};
 
 % Generate event-station correspondence table for efficient data access
 EventStationTable = getEventStationTable(DataStruct);
@@ -84,12 +89,19 @@ EventStationTable = getEventStationTable(DataStruct);
 % 2. Set grid spacing (dx, dy) for horizontal dimensions
 % 3. Define velocity structure using a 3D model
 dx = 5;
-dy = 5;
-gridStruct = createGrid(DataStruct, dx, dy);
+dy = 5; 
+dz = 1;
+zmax = 100;
+xpad = 30;
+ypad = 30;
+gridStruct = createGrid(DataStruct, dx, dy, dz, zmax, xpad, ypad);
 % Create or obtain 3D velocity model with specified sampling (10 points)
 % This model will be used for ray tracing in migration
-npts = 10;
+npts = 5;
 gridStruct = getVelocityModel('3D',gridStruct,npts);
+
+% Set up 3D migration parameters based on grid structure
+MigParam.paramMig = setMigParam3D(gridStruct);
 %% 5. Migration imaging
 % Perform Common Conversion Point (CCP) stacking for each event that meets quality
 % criteria. This process includes:
@@ -100,42 +112,69 @@ gridStruct = getVelocityModel('3D',gridStruct,npts);
 % 5. CCP stacking to create 3D image volume
 
 % Initialize arrays for accumulating migration results across all events
-dimg = [];    % 4D array to store CCP stacking results (X, Y, Z, Event)
-count = [];   % 4D array tracking number of traces contributing to each point
 nMigratedEvents = 1;   % Counter for successfully processed events
 minTrace = 60; % Minimum number of traces required for CCP imaging
-minSNR = 3;    % Minimum SNR of the RF required for CCP imaging
-DeconvParam.radonfilter = 0; % Apply radon transform to seismograms
+minSNR = 5;    % Minimum SNR of the RF required for CCP imaging
+DeconvParam.radonfilter = 1; % Apply radon transform to seismograms
+DeconvParam.gauss = 2.5;
+CCPParam.smoothLength = 3;
 % Process each event that meets the filtering criteria
+ccpResults = [];
+ccpResultsRadon = [];
+migResults = [];
+
 for iEvent = 1:length(eventid)
     evid = eventid{iEvent};
+%     evid='20231221145556';
     % Extract seismic records for current event (Common Event Gather)
     gather = getCommonEventGather(DataStruct, evid);
     % Extract the SNR
     snrAll = cell2mat(cellfun(@(rf) rf.snr, {gather.RF}, 'UniformOutput', false));
     % Skip events with fewer than 60 valid stations to ensure imaging quality
-    if length(gather) < minTrace || mean(snrAll)< minSNR
-        continue
-    end
-
+%     if length(gather) < minTrace || mean(snrAll)< minSNR || length(gather) > 100
+%         continue
+%     end
+    DeconvParam.radonfilter = false;
+    gather = deconv(gather, DeconvParam);
     % Check if Radon filtering is enabled for enhanced signal quality
+    DeconvParam.radonfilter = true;
     if DeconvParam.radonfilter
         RadonParam.highs = 1.2;
-        RadonParam.pmax = 0.05;
-        RadonParam.pmin = -0.05;
+        RadonParam.pmax = 0.02;
+        RadonParam.pmin = -0.02;
         % Apply Radon Transform for array processing
-        gather = radonTransform(gather, RadonParam);
-    end
-
-    % Perform deconvolution to obtain receiver functions
-    DeconvParam.verbose = false;
-    gather = deconv(gather, DeconvParam);
+        gatherRadon = radonTransform(gather, gridStruct, RadonParam);
+%         gatherRadon = deconv(gather, DeconvParam);
+%         export_fig(['./figures/radon_post_rfs_',num2str(evid),'.png'],'-r300')
+    end    
+    
+    % compare two RFs
+%     figure;
+%     set(gcf,'Position',[100 100 400 800],'Color','w')
+%     ax1 = subplot(211);
+%     plotCommonEventGather(gather, [], 'trace', 'imagesc',ax1)
+%     set(ax1,'YLim',[0 20])
+%     ax2 = subplot(212);
+%     plotCommonEventGather(gatherRadon, [], 'trace', 'imagesc',ax2)
+%     set(ax2,'YLim',[0 20])
+%     export_fig(['./figures/radon_postdecon_rfs_',num2str(evid),'.png'],'-r300')
 
     % Apply Common Conversion Point stacking for the current event gather
+    CCPParam.smoothLength = 3;
     ccpResult = CCPCommonEventGather(gather, gridStruct, CCPParam);
-    dimg(:,:,:,nMigratedEvents) = ccpResult.img;
-    count(:,:,:,nMigratedEvents) = ccpResult.count;
+    ccpResults = [ccpResults; ccpResult];
 
+    CCPParam.smoothLength = 3;
+    ccpResultRadon = CCPCommonEventGather(gatherRadon, gridStruct, CCPParam);
+    ccpResultsRadon = [ccpResultsRadon; ccpResultRadon];
+
+    % Apply migration imaging
+    MigParam.itermax = 10;
+    MigParam.tmax = 80;
+    migResult = leastSquaresMig3D(gatherRadon, gridStruct, MigParam);
+    migResults = [migResults; migResult];
+
+%      pause;
     % Clear figure windows to avoid memory issues during batch processing
     close all;
     nMigratedEvents = nMigratedEvents + 1;
@@ -147,10 +186,32 @@ end
 % 2. Interactive profile selection
 % 3. Structure-oriented filtering of cross-sections
 % 4. Comparative display of original and filtered profiles
-
 % Prepare the normalized image volume
-ccpResult.V = sum(dimg,4)./max(sum(count,4),1);
+count = 0;
+V = zeros(size(ccpResults(1).img));
+for n=1:length(ccpResults)
+    V = V+ccpResults(n).img;
+    count = count+ccpResults(n).count;
+end
+ccpResult.V = V./max(count,1);
 
+count = 0;
+V = zeros(size(ccpResults(1).img));
+for n=1:length(ccpResultsRadon)
+    V = V+ccpResultsRadon(n).img;
+    count = count+ccpResultsRadon(n).count;
+end
+ccpResultRadon.V = V./max(count,1);
+
+V = zeros(size(migResults(1).migls));
+for n=1:length(migResults)
+    V = V+migResults(n).migls;
+end
+V = V/length(migResults);
+V = permute(V,[3,2,1]);
+migResult.V = V-mean(V(:));
+
+% ccpResult.V = sum(dimgRadon,4)./max(sum(countRadon,4;),1);
 % Configure visualization options
 options = struct();
 options.profileType = 'predefined';  % Enable interactive profile selection
@@ -159,17 +220,27 @@ options.smoothingParams = struct(...
     'eps', 0.01, ...       % Regularization parameter
     'order', 2);           % Smoothing order
 % define profile location
+% profilePoints = [
+% 91.461	37.47
+% 91.948	38.168
+% 93.599	38.782
+% 93.994	38.681
+% 95.53531 39.21347];
+% [px,py] = latlonToProjectedCoords(profilePoints(:,1), profilePoints(:,2), gridStruct);
 profilePoints = [
-91.461	37.47
-91.948	38.168
-93.599	38.782
-93.994	38.681
-95.53531 39.21347];
-[px,py] = latlonToProjectedCoords(profilePoints(:,1), profilePoints(:,2), gridStruct);
+    -20 -10;
+    107 48;
+    212 47;
+    345 -5];
+px = profilePoints(:,1);
+py = profilePoints(:,2);
 options.profilePoints(:,1) = px;
 options.profilePoints(:,2) = py;
 % Generate visualizations and get profile data structure
-profileStruct = visualizeCCPResults(ccpResult, gridStruct, options);
+% profileStruct = visualizeCCPResults(migResult, gridStruct, options);
+visualizeCCPResults(ccpResult, gridStruct, options);
+visualizeCCPResults(ccpResultRadon, gridStruct, options);
+visualizeCCPResults(migResult, gridStruct, options);
 %% 7. Save results
 % Save the final CCP imaging results to a MAT file for future reference and analysis.
 % The saved results include:

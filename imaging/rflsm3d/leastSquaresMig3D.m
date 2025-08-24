@@ -20,10 +20,11 @@ if ~isfield(param,'binning') || ~isfield(param.binning,'dx')
     % If binning not given, default to gridStruct.dx
     param.binning = gridStruct;
 end
-if ~isfield(param,'itermax'), param.itermax = 20; end
+if ~isfield(param,'itermax'), param.itermax = 5;  end
 if ~isfield(param,'mu'),      param.mu = 0.1;     end
 if ~isfield(param,'xpad'),    param.xpad = 0;     end
 if ~isfield(param,'plotMig'), param.plotMig = false;    end
+if ~isfield(param,'tmax') || ~isfield(param.tmax, 20)
 % Display some gather info if present
 if isfield(gather(1), 'EventInfo') && isfield(gather(1).EventInfo, 'evid')
     disp(['[leastSquaresMig] Processing event: ' gather(1).EventInfo.evid]);
@@ -48,11 +49,11 @@ end
 itrAll  = itrAll(validMask);
 gval    = gather(validMask);
 
-% Combine all itr traces into a matrix [Nt x Ntrace]
-itrMat = cell2mat(cellfun(@(rf) rf.itr, itrAll, 'UniformOutput', false)); 
-
 % Time axis from the first valid record
 timeAxis = gval(1).RF.ittime;  % or gather(find(validMask,1)).RF.ittime
+idx = timeAxis<=param.tmax;
+timeAxis = timeAxis(idx);
+
 dt_samp  = gval(1).TimeAxis.dt_resample;
 nt       = length(timeAxis);
 
@@ -61,6 +62,10 @@ param.paramMig.dt = dt_samp;
 param.paramMig.nt = nt;
 param.paramMig.gauss = param.gauss;
 param.paramMig.phaseshift = param.phaseshift;
+
+% Combine all itr traces into a matrix [Nt x Ntrace]
+itrMat = cell2mat(cellfun(@(rf) rf.itr, itrAll, 'UniformOutput', false)); 
+itrMat = itrMat(idx,:);
 %% ------------------------------------------------------------------------
 %  (5) Forward wavefield modeling (source, shift, etc.)
 % -------------------------------------------------------------------------
@@ -92,7 +97,7 @@ save_wavefield = 0;
 [mig,pre_rfm] = runMigration(rfshift,take_off,back_azimuth,src_func,save_wavefield,gridStruct,param);
 
 %% LSM
-itermax = 5;
+itermax = param.itermax;
 save_wavefield = 0;
 [lsmig,pre_rflsm] = runLSM(rfshift,take_off,back_azimuth,src_func,save_wavefield,itermax,gridStruct,param);
 

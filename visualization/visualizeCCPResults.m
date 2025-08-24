@@ -71,7 +71,7 @@ hold on;
 % Plot volume slices
 h = slice(X, Y, Z, V, [], [], 100);
 colormap(ax1, flipud(cmap.roma));
-cmax = rms(V(:));
+cmax = 2*rms(V(:));
 caxis([-cmax, cmax]);
 
 % Set axes properties
@@ -181,8 +181,10 @@ if isfield(options, 'smoothingParams')
     imagesc(distAll(1,:), depthAll(:,1), VAll);
     title('Original Profile');
     colormap(flipud(cmap.roma));
-    cmax = rms(VAll(:));
+    cmax = 2*rms(VAll(:));
     caxis([-cmax, cmax]);
+    colorbar;
+    xlabel('Distance (km)');
     ylabel('Depth (km)');
     set(gca, 'FontSize', 16);
 
@@ -191,6 +193,7 @@ if isfield(options, 'smoothingParams')
     title('Structure-Oriented Filtered Profile');
     colormap(flipud(cmap.roma));
     caxis([-cmax, cmax]);
+    colorbar;
     xlabel('Distance (km)');
     ylabel('Depth (km)');
     set(gca, 'FontSize', 16);

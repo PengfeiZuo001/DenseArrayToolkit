@@ -88,7 +88,11 @@ EventStationTable = getEventStationTable(DataStruct);
 % 4. Generate 3D velocity structure for accurate imaging
 dx = 5;  % Horizontal grid spacing (km)
 dy = 5;  % Vertical grid spacing (km)
-gridStruct = createGrid(DataStruct, dx, dy);
+dz = 1;
+zmax = 100;
+xpad = 30;
+ypad = 30;
+gridStruct = createGrid(DataStruct, dx, dy, dz, zmax, xpad, ypad);
 % Create 3D velocity model with 5-point sampling for detailed structure
 gridStruct = getVelocityModel('3D',gridStruct,5);
 %% 5. Migration imaging

@@ -30,6 +30,6 @@ function param = setMigParam3D(gridStruct)
     param.vs = gridStruct.VS;
 
     %% reconstruction or not
-    param.isReconRFs = 1;
+    param.isReconRFs = 0;
     
 end

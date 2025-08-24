@@ -86,7 +86,21 @@ d0 = cell2mat(cellfun(@(rf) rf.itr(idxT), itrCell,'UniformOutput', false));
 %% 4. bin the data in 3D
 % [d3d, x1, y1, mask] = drr_bin3d(d0, rx, ry, param.nx, param.ny, param.ox, param.oy, param.mx, param.my);
 % miss_per = (length(find(mask==0))/length(t))/(param.nx*param.ny);
+dx = (param.mx - param.ox) / (param.nx - 1);
+dy = (param.my - param.oy) / (param.ny - 1);
 
+xx=param.ox+[0:param.nx-1]*dx;
+yy=param.oy+[0:param.ny-1]*dy;
+[Xgrid,Ygrid] = meshgrid(xx,yy);
+
+figure;
+set(gcf,'Position',[100 100 600 400],'Color','w')
+scatter(rx,ry,40,'red','filled','^','MarkerEdgeColor','k'); hold on;
+scatter(Xgrid(:),Ygrid(:),5,'k','filled','o');
+xlabel('X (km)')
+ylabel('Y (km)')
+set(gca,'fontsize',14)
+% export_fig './figures/BY_rank_grid.png' '-r300'
 %% 5. DRR-OTG reconstruction
 % call drr3drecon_otg
 [d1_otg, d1] = drr3drecon_otg(...
