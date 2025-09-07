@@ -52,6 +52,14 @@ if strcmp(gridStruct.ModelType ,'1D')
     vp   = gridStruct.vp(:, 1);  % Assuming vp is 1D
     vs   = gridStruct.vs(:, 1);  % Assuming vs is 1D
     z = gridStruct.z;
+elseif strcmp(gridStruct.ModelType ,'2D')
+    vp   = mean(gridStruct.vp,2);  % Average of 2D model
+    vs   = mean(gridStruct.vs,2);  % Average of 2D model
+    z = gridStruct.z;
+elseif strcmp(gridStruct.ModelType ,'3D')
+    vp   = mean(mean(gridStruct.vp,3),2);  % Average of 3D model
+    vs   = mean(mean(gridStruct.vs,3),2);  % Average of 3D model
+    z = gridStruct.z;
 else
     [z, r, vp, vs, ~, ~] = ak135('cont');
 end
@@ -92,7 +100,7 @@ toc;
 disp('Ray tracing completed');
 
 % make time correction if a regional 3D velocity model is available
-if strcmp(gridStruct.ModelType ,'3D')
+if strcmp(gridStruct.ModelType ,'3D') || strcmp(gridStruct.ModelType ,'2D')
     Fvp = gridStruct.Fvp;
     Fvs = gridStruct.Fvs;
     % correct for heterogeneity
@@ -139,8 +147,8 @@ end
 % 3. Stack (sum) amplitudes in each cell
 % 4. Normalize by sample count in each cell
 %
-% Handles both 1D and 3D velocity models differently:
-% - 1D: Simple 2D (distance-depth) stacking
+% Handles both 2D and 3D velocity models differently:
+% - 2D: Simple 2D (distance-depth) stacking
 % - 3D: Full 3D spatial binning with progress tracking
 switch param.imagingType
     % project to profile for 2D imaging
@@ -177,11 +185,8 @@ switch param.imagingType
         if param.smoothLength > 0 
             K = (1/param.smoothLength^2)*ones(param.smoothLength,param.smoothLength);
             V = conv2(V,K,'same');
+            count = conv2(count,K,'same');
         end
-
-        % Generate CCP Image
-%         V = V ./ max(count, 1);  % 避免除以0
-
         %% Plot CCP Image
         if param.plotCCP
             try

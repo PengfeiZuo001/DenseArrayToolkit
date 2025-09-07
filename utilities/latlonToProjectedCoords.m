@@ -1,11 +1,5 @@
 function [rx, ry] = latlonToProjectedCoords(stlo, stla, gridStruct)
-    % 将经度和纬度合并为一个矩阵
-%     stla = cellfun(@(stationinfo) stationinfo.stla, {gather.StationInfo}, 'UniformOutput', false);
-%     stlo = cellfun(@(stationinfo) stationinfo.stlo, {gather.StationInfo}, 'UniformOutput', false);
-%     stlo = cell2mat(stlo)';
-%     stla = cell2mat(stla)';
-
-    % 将经纬度转换为笛卡尔坐标系
+    % convert the coordinates from lat, lon, to projected Cartesian coordinates
     [stationX, stationY] = latlon2xy(stlo, stla, gridStruct.originLon, gridStruct.originLat);
     
     % 执行PCA分析

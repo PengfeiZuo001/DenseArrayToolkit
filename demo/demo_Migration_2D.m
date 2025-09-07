@@ -1,4 +1,4 @@
-d%% DenseArrayToolkit 2D Migration Main Function Example
+%% DenseArrayToolkit 2D Migration Main Function Example
 % This script demonstrates a complete workflow for 2D seismic imaging using both
 % Common Conversion Point (CCP) stacking and migration methods. It processes
 % seismic array data to create subsurface images along 2D profiles.
@@ -41,6 +41,8 @@ MigParam           = config.MigParam;
 RadonParam         = config.RadonParam;
 DeconvParam        = config.DeconvParam;
 CCPParam           = config.CCPParam;
+
+dataFolder = './data/event_waveforms_QBI';
 %% 1. Read data
 % Load seismic waveform data in SAC format from the specified directory
 % The data is encapsulated into a structured array (DataStruct) containing
@@ -88,21 +90,25 @@ EventStationTable = getEventStationTable(DataStruct);
 % 2. Create imaging grid based on array geometry
 % 3. Generate 1D velocity model for migration
 % Note: Using 1D velocity model for simplified ray tracing in 2D migration
-dx = 5;  % Horizontal grid spacing (km)
-dy = 5;  % Vertical grid spacing (km)
-gridStruct = createGrid(DataStruct, dx, dy);
+dx = 4;  % Horizontal grid spacing (km)
+dy = 4;  % Vertical grid spacing (km)
+dz = 1;
+zmax = 100;
+xpad = 40;
+ypad = 40;
+gridStruct = createGrid(DataStruct, dx, dy, dz, zmax, xpad, ypad);
 % Create 1D velocity model for migration imaging
-gridStruct = getVelocityModel('1D',gridStruct);
+gridStruct = getVelocityModel('2D',gridStruct);
 %% 5. Migration imaging
 % Perform both conventional migration and CCP stacking for comparison:
 % - Standard Kirchhoff migration
 % - Least-squares migration for improved resolution
 % - CCP stacking as a reference method
 %
-% Initialize arrays to store results from all events:
-dmig   = [];  % Standard migration results
-dmigls = [];  % Least-squares migration results
-dimg   = [];  % CCP stacking results
+% Initialize arrays to store results from all events: 
+migResults = []; % Migration results
+ccpResults = []; % CCP stacking results
+
 nMigratedEvents = 1;    % Counter for successfully processed events
 
 % Process each event that meets the azimuthal filtering criteria
@@ -118,50 +124,63 @@ for iEvent = 1:length(eventid)
         continue
     end
   
+    % Compute receiver functions through deconvolution
+    DeconvParam.gauss=2.5;
+    DeconvParam.verbose = false;
+    DeconvParam.radonfilter = false;
+    gather = deconv(gather, DeconvParam);   
+
     % Optional Radon Transform filtering for enhanced signal quality
     % This helps suppress noise and improve coherency in the data
+    % Check if Radon filtering is enabled for enhanced signal quality
+    DeconvParam.radonfilter = true;
     if DeconvParam.radonfilter
-        % Apply Radon Transform for array-based signal enhancement
-        gather = radonTransform(gather, RadonParam);
-    end
-
-    % Compute receiver functions through deconvolution
-    % This isolates converted phases from the P-wave coda
-    DeconvParam.verbose = false;
-    gather = deconv(gather, DeconvParam);
+        RadonParam.highs = 1.2;
+        RadonParam.pmax = 0.02;
+        RadonParam.pmin = -0.02;
+        % Apply Radon Transform for array processing
+        gatherRadon = radonTransform(gather, gridStruct, RadonParam);
+% 
+%         figure;
+%         set(gcf,'Position',[100 100 800 400],'Color','w')
+%         ax1 = subplot(121);
+%         plotCommonEventGather(gather, [], 'trace', 'imagesc',ax1)
+%         set(ax1,'YLim',[0 20])
+%         ax2 = subplot(122);
+%         plotCommonEventGather(gatherRadon, [], 'trace', 'imagesc',ax2)
+%         set(ax2,'YLim',[0 20])
+    end    
     
     % Perform 2D CCP stacking
     CCPParam.imagingType = '2D';  % Set imaging mode to 2D
+    CCPParam.smoothLength = 0;
     % Apply Common Conversion Point stacking
-    ccpResult = CCPCommonEventGather(gather, gridStruct, CCPParam);
-    % Normalize CCP image by hit count to account for uneven sampling
-    dimg(:,:,nMigratedEvents) = ccpResult.img./max(ccpResult.count,1);
+    ccpResult = CCPCommonEventGather(gatherRadon, gridStruct, CCPParam);
+    ccpResults = [ccpResults; ccpResult];
 
     % Perform least-squares migration
     % This method provides improved resolution compared to standard migration
-    migResult = leastSquaresMig(gather, gridStruct, MigParam);
+    MigParam.itermax = 30;
+    MigParam.gauss = DeconvParam.gauss;
+    migResult = leastSquaresMig(gatherRadon, gridStruct, MigParam);
     
     % Store migration results for current event
-    dmig(:, :, nMigratedEvents)   = migResult.mig;
-    dmigls(:, :, nMigratedEvents) = migResult.migls;
+    migResults = [migResults; migResult];
     
     % Clear figure windows to avoid memory issues during batch processing
-    close all;
+%     close all;
     
     nMigratedEvents = nMigratedEvents + 1;
 end
 
-% Extract spatial coordinates from final migration result for visualization
-x = migResult.x;    % Horizontal distance coordinate
-z = migResult.z;    % Depth coordinate
-
 %% 6. Visualization
 % Create comparative display of different imaging methods:
-% - CCP stacking results (dimg)
-% - Standard migration results (dmig)
-% - Least-squares migration results (dmigls)
+% - CCP stacking results (ccpResults)
+% - Standard migration results (migResults)
+% - Least-squares migration results (migResults)
 % This allows direct comparison of the different imaging approaches
-plotCCPMigrationResults(dimg,dmig,dmigls,x,z)
+smoothLength = 3;
+plotCCPMigrationResults(ccpResults,migResults,gridStruct,smoothLength)
 
 %% 7. Save results
 % Store final migration and CCP results to files for future analysis
@@ -170,5 +189,5 @@ plotCCPMigrationResults(dimg,dmig,dmigls,x,z)
 % - CCP stacking results
 % - Grid coordinates and parameters
 % - Processing configuration
-write_MigResult([config.outputFolder,'/migResult.mat'], migResult);
-write_MigResult([config.outputFolder,'/ccpResult.mat'], ccpResult);
+write_MigResult([config.outputFolder,'/migResults.mat'], migResults);
+write_MigResult([config.outputFolder,'/ccpResults.mat'], ccpResults);

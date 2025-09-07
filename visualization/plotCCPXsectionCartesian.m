@@ -23,7 +23,8 @@ hold on;
 h = slice(X,Y,Z,V,[],[],100);
 colormap(ax1, flipud(cmap.roma));  % 为波形数据设置不同的色标
 cmax = 2*rms(V(:));  % 计算色标的最大值
-caxis([-cmax, cmax]);  % 设置波形数据的色标范围
+% caxis([-cmax, cmax]);  % 设置波形数据的色标范围
+caxis([-0.05 0.05])
 % colorbar;  % 为波形数据显示colorbar
 
 
@@ -67,8 +68,8 @@ for n = 1:length(profile)
 
     colormap(flipud(cmap.roma))
     cmax = 2*rms(Vprofile(:));
-    caxis([-cmax,cmax]);
-%     caxis([-0.025 0.025])
+%     caxis([-cmax,cmax]);
+    caxis([-0.025 0.025])
     
     grid on; box on;
     view(140,20)

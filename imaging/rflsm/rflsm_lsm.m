@@ -16,7 +16,7 @@ function [mig,dp] = rflsm_lsm(d,t,vel,vel_s,src,pos,tshift,param)
 disp('Preconditioned least-squares migration begins')
 
 % parameters for forward propagation
-fpeak = 10.; %not used
+% fpeak = 10.; %not used
 dt = t(2)-t(1);
 nt = length(t);
 dx = param.binning.dx;

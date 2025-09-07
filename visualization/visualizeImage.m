@@ -1,13 +1,13 @@
-function [profileStruct] = visualizeCCPResults(ccpResult, gridStruct, options)
-%% visualizeCCPResults - Visualize CCP stacking results with structure-oriented filtering
+function [profileStruct] = visualizeImage(ccpResult, gridStruct, options)
+%% visualizeCCPResults - Visualize CCP stacking/Migration results with options for structure-oriented filtering
 % This function creates visualizations of CCP stacking results, including 3D volume
 % visualization and 2D profiles with optional structure-oriented filtering. It uses
 % plotCCPXsectionCartesian for profile display and adds structure-oriented filtering
 % capabilities.
 %
 % Usage:
-%   profileStruct = visualizeCCPResults(ccpResult, gridStruct)
-%   profileStruct = visualizeCCPResults(ccpResult, gridStruct, options)
+%   profileStruct = visualizeImage(ccpResult, gridStruct)
+%   profileStruct = visualizeImage(ccpResult, gridStruct, options)
 %
 % Inputs:
 %   ccpResult  - Structure containing CCP stacking results

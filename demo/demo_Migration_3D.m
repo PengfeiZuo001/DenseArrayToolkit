@@ -127,8 +127,8 @@ MigParam.paramMig = setMigParam3D(gridStruct);
 minTrace = 100; % Minimum number of traces required for CCP imaging
 minSNR = 3;    % Minimum SNR of the RF required for CCP imaging
 
-dimg = [];
-count = [];
+migResults = [];
+ccpResults = [];
 % Process each event in the dataset
 for iEvent = 1:length(eventid)
     evid = eventid{iEvent}; 
@@ -153,6 +153,7 @@ for iEvent = 1:length(eventid)
     % This helps suppress noise and enhance coherent signals
     MigParam.paramMig.isReconRFs=1;
     MigParam.gauss = 5;
+    MigParam.tmax = 80;
     if MigParam.paramMig.isReconRFs
         RankReductionParam.rank = 5;
         RankReductionParam.fhigh = 2.4;
@@ -211,7 +212,11 @@ for iEvent = 1:length(eventid)
     close all;
     nMigratedEvents = nMigratedEvents + 1;
 end
-%% 6. Visualization
+%% 6. Stacking
+% ccpImage = stackImagingResults(ccpResults);
+% migImage = stackImagingResults(migResults);
+
+%% 7. Visualization
 V = zeros(size(migResults(1).mig));
 for n=1:length(migResults)
     V = V+migResults(n).migls;
@@ -241,8 +246,8 @@ options.profilePoints(:,2) = [0 150 nan 66.9016 66.9016];
 % options.profilePoints(:,1) = [0; 200];
 % options.profilePoints(:,2) = [66.9016; 66.9016];
 
-[profileStruct] = visualizeCCPResults(migResult, gridStruct, options);
-[profileStruct] = visualizeCCPResults(ccpResult, gridStruct, options);
+visualizeImage(migResult, gridStruct, options);
+visualizeImage(ccpResult, gridStruct, options);
 % pointA = [76.6927, 66.9016, 0]; % 点A (x1,y1,z1)
 % pointB = [76.6927, 66.9016, 100]; % 点B (x2,y2,z2)
 % lx = [pointA(1), pointB(1)];

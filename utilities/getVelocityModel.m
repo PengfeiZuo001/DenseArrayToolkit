@@ -39,14 +39,66 @@ switch ModelType
         [vel,~] = moving_avg(vel, N, 'constant');
         [vel_s,~] = moving_avg(vel_s, N, 'constant', 2);
         [vel_s,~] = moving_avg(vel_s, N, 'constant');
-        
+
         gridStruct.vp = vel;
         gridStruct.vs = vel_s;
         
     case '2D'
         % TODO: Implement 2D velocity model
-        warning('2D velocity model not implemented yet');
+%         warning('2D velocity model not implemented yet');
+        % extract 2D velocity profile
+%         X = gridStruct.XInOriginalCoord;
+%         Y = gridStruct.YInOriginalCoord;
+%         [LON, LAT] = xy2latlon(X, Y, gridStruct.originLon, gridStruct.originLat);
+
+        % load regional velocity model
+        filename = './velocity_model/Zhao2013_QB_PS2.2.txt';
+        matrix = readmatrix(filename);
+        lon = matrix(:,1); 
+        lat = matrix(:,2); 
+        depth = matrix(:,3);
+        vp = matrix(:,4); 
+        vs = matrix(:,5);
         
+        % Create interpolants for the 3D velocity model
+        Fvp = scatteredInterpolant(lon, lat, depth, vp, 'linear', 'nearest');
+        Fvs = scatteredInterpolant(lon, lat, depth, vs, 'linear', 'nearest');
+        gridStruct.Fvp = Fvp;
+        gridStruct.Fvs = Fvs;
+
+        % velocity model grid
+        [xv,yv] = latlonToProjectedCoords(lon, lat, gridStruct);
+        % migrition grid
+        [XX, YY, ZZ] = meshgrid(gridStruct.x, gridStruct.y, gridStruct.z);
+        
+        % 使用散点插值到规则网格
+        F_vp = scatteredInterpolant(xv, yv, depth, vp, 'linear', 'none');
+        F_vs = scatteredInterpolant(xv, yv, depth, vs, 'linear', 'none');
+        
+        % 在规则网格点上求值
+        Vp = F_vp(XX, YY, ZZ);
+        Vs = F_vs(XX, YY, ZZ);
+        
+        % 转置以匹配期望的维度顺序 [nz,nx,ny]
+        Vp = permute(Vp, [3 2 1]);
+        Vs = permute(Vs, [3 2 1]);
+
+%         gridStruct.VP = Vp;
+%         gridStruct.VS = Vs;
+        vel = mean(Vp,3);
+        vel_s = mean(Vs,3);
+        % Apply smoothing to velocity models using moving average
+        N = 5;  % Smoothing window size
+        [vel,~] = moving_avg(vel, N, 'constant', 2);
+        [vel,~] = moving_avg(vel, N, 'constant');
+        [vel_s,~] = moving_avg(vel_s, N, 'constant', 2);
+        [vel_s,~] = moving_avg(vel_s, N, 'constant');
+        
+        gridStruct.vp = vel;
+        gridStruct.vs = vel_s;
+
+        figure;
+        imagesc(gridStruct.x, gridStruct.z, vel);
     case '3D'
         % Extract geographical boundaries
         LatMin = gridStruct.LatMin;
@@ -185,7 +237,7 @@ switch ModelType
         xlabel('X (km)');
         ylabel('Y (km)');
 %         legend('show','Location','best');
-%         axis equal;
+        axis equal;
         grid on;
         title('Velocity model');
         hold off;
