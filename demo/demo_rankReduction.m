@@ -82,7 +82,7 @@ for iEvent = 1:length(eventIDs)
 
     % Call rankReduction for 3D data reconstruction of this event
     % gather => [ gather(i).RF.itr ...], gather(i).StationInfo ...
-    [gatherReconstructed, d1_otg] = rankReduction(gather, gridStruct, RankReductionParam);
+    [gatherReconstructed, d1_otg] = rankReduction3D(gather, gridStruct, RankReductionParam);
 
     % Merge results into DataStruct_drr
     DataStructDRR = [DataStructDRR; gatherReconstructed(:)];

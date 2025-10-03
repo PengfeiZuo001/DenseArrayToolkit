@@ -1,8 +1,8 @@
-function DataStruct = radonTransform(DataStruct, gridStruct, param)
+function DataStruct = radonTransform2D(DataStruct, gridStruct, param)
 % RADONTRANSFORM  Perform Radon Transform-based array processing on DataStruct.
 %
 % Usage:
-%   DataStruct = radonTransform(DataStruct, param)
+%   DataStruct = radonTransform2D(DataStruct, param)
 %
 % Inputs:
 %   DataStruct : struct array with fields:
@@ -32,7 +32,7 @@ function DataStruct = radonTransform(DataStruct, gridStruct, param)
 %                is populated with [Nt x 3] radial/transverse (or vertical)
 %                waveforms after Radon-based noise removal or separation.
 %
-% Author:  Yunfeng Chen (Refined by ChatGPT)
+% Author:  Yunfeng Chen (Refined by LLM)
 % Date   : Jan. 12, 2025
 
 %% 1. Parameter Handling & Validation

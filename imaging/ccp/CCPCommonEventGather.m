@@ -57,8 +57,8 @@ elseif strcmp(gridStruct.ModelType ,'2D')
     vs   = mean(gridStruct.vs,2);  % Average of 2D model
     z = gridStruct.z;
 elseif strcmp(gridStruct.ModelType ,'3D')
-    vp   = mean(mean(gridStruct.vp,3),2);  % Average of 3D model
-    vs   = mean(mean(gridStruct.vs,3),2);  % Average of 3D model
+    vp   = mean(mean(gridStruct.VP,3),2);  % Average of 3D model
+    vs   = mean(mean(gridStruct.VS,3),2);  % Average of 3D model
     z = gridStruct.z;
 else
     [z, r, vp, vs, ~, ~] = ak135('cont');

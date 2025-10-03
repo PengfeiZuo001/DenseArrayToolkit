@@ -168,8 +168,7 @@ for iEvent = 1:length(eventid)
     migResults = [migResults; migResult];
     
     % Clear figure windows to avoid memory issues during batch processing
-%     close all;
-    
+%     close all; 
     nMigratedEvents = nMigratedEvents + 1;
 end
 
