@@ -12,37 +12,49 @@
 ## Contents
 
 <!-- TOC -->
-  - [1. Introduction](#1-introduction)
-  - [2. Installation & Requirements](#2-installation--requirements)
-  - [3. Quick Start](#3-quick-start)
-  - [4. Modules/Functions](#4-modulesfunctions)
-    - [4.1 `read_SAC()`](#41-read_sac)
-    - [4.2 `preprocessing()`](#42-preprocessing)
-    - [4.3 `deconv()`](#43-deconv)
-    - [4.4 `radonTransform()`](#44-radontransform)
-    - [4.5 `rankReduction()`](#45-rankreduction)
-    - [4.6 `CCPStacking()`](#46-ccpstacking)
-    - [4.7 `leastSquaresMig()`](#47-leastsquaresmig)
-    - [4.8 `leastSquaresMig3D()`](#48-leastsquaresmig3d)
-    - [4.9 `HKstacking()`](#49-hkstacking)
-    - [4.10 `plotCommonEventGather()`](#410-plotcommoneventgather)
-    - [4.11 `plotCommonStationGather()`](#411-plotcommonstationgather)
-  - [5. Examples](#5-examples)
-    - [5.1 Rank Reduction Method](#51-rank-reduction-method)
-    - [5.2 CCP Stacking](#52-ccp-stacking)
-    - [5.3 Least Squares Migration](#53-least-squares-migration)
-  - [6. Troubleshooting](#6-troubleshooting)
-  - [7. Appendices](#7-appendices)
-    - [7.1 Data Structure Reference](#71-data-structure-reference)
-    - [7.2 Parameter Lists](#72-parameter-lists)
-  - [8. Revision History](#8-revision-history)
-  - [9. Authors](#9-authors)
-  - [10. License](#10-license)
-  - [11. Contributing](#11-contributing)
-  - [12. FAQ](#12-faq)
-  - [13. Contact Information](#13-contact-information)
-  - [14. Acknowledgments](#14-acknowledgments)
-  - [15. References](#15-references)
+- [Contents](#contents)
+- [1. Introduction](#1-introduction)
+- [2. Installation \& Requirements](#2-installation--requirements)
+- [3. Quick Start](#3-quick-start)
+- [4. Modules/Functions](#4-modulesfunctions)
+  - [4.1 `read_SAC()`](#41-read_sac)
+  - [4.2 `preprocessing()`](#42-preprocessing)
+  - [4.3 `deconv()`](#43-deconv)
+  - [4.4 Array Processing Module](#44-array-processing-module)
+    - [4.4.1 `radonTransform2D()`](#441-radontransform2d)
+    - [4.4.2 `radonTransform3D()`](#442-radontransform3d)
+    - [4.4.3 `rankReduction2D()`](#443-rankreduction2d)
+    - [4.4.4 `rankReduction3D()`](#444-rankreduction3d)
+    - [4.4.5 `fkFilter()`](#445-fkfilter)
+  - [4.5 Imaging Module](#45-imaging-module)
+    - [4.5.1 `CCPCommonEventGather()`](#451-ccpcommoneventgather)
+    - [4.5.2 `leastSquaresMig2D()`](#452-leastsquaresmig2d)
+    - [4.5.3 `leastSquaresMig3D()`](#453-leastsquaresmig3d)
+    - [4.5.4 `HKstacking()`](#454-hkstacking)
+  - [4.6 Visualization Module](#46-visualization-module)
+    - [4.6.1 `plotCommonEventGather()`](#461-plotcommoneventgather)
+    - [4.6.2 `plotCommonStationGather()`](#462-plotcommonstationgather)
+    - [4.6.3 `plotCCPResults()`](#463-plotccpresults)
+    - [4.6.4 `plotMigrationResults()`](#464-plotmigrationresults)
+    - [4.6.5 `plotStations()`](#465-plotstations)
+    - [4.6.6 `plotEvents()`](#466-plotevents)
+- [5. Examples](#5-examples)
+  - [5.1 demo\_rankReduction.m —— 阵列接收函数阻尼秩约简处理](#51-demo_rankreductionm--阵列接收函数阻尼秩约简处理)
+  - [5.2 demo\_Stacking.m —— 接收函数叠加与可视化](#52-demo_stackingm--接收函数叠加与可视化)
+  - [5.3 demo\_Migration\_2D.m —— 二维地震成像与对比](#53-demo_migration_2dm--二维地震成像与对比)
+  - [5.4 demo\_Migration\_3D.m —— 三维地震成像与秩约简](#54-demo_migration_3dm--三维地震成像与秩约简)
+- [6. Troubleshooting](#6-troubleshooting)
+- [7. Appendices](#7-appendices)
+  - [7.1 Data Structure Reference](#71-data-structure-reference)
+  - [7.2 Parameter Lists](#72-parameter-lists)
+- [8. Revision History](#8-revision-history)
+- [9. Authors](#9-authors)
+- [10. License](#10-license)
+- [11. Contributing](#11-contributing)
+- [12. FAQ](#12-faq)
+- [13. Contact Information](#13-contact-information)
+- [14. Acknowledgments](#14-acknowledgments)
+- [15. References](#15-references)
 <!-- /TOC -->
 
 <div style="page-break-after: always;"></div>
@@ -183,13 +195,29 @@
 - **输出**：
   - `DataStruct`：更新后的结构数组，包含 `DataStruct(n).RF` 字段，即反褶积结果。
 
-### 4.4 `radonTransform()`
+### 4.4 Array Processing Module
 
-该函数对接收函数进行 Radon 变换，利用 Radon 参数进行噪声去除或分离，最终生成 Radon 变换后的波形数据。
+array_processing 模块是 DenseArrayToolkit 的核心处理模块，专门针对密集台阵数据的特点开发了一系列先进的信号处理算法。该模块主要用于提高地震数据的信噪比、分离相干噪声与有效信号、以及改善数据的空间连续性。这些方法特别适用于处理不规则分布的台阵数据和压制面波等相干噪声。
+
+**模块特点：**
+- **多维处理能力**：支持 2D 和 3D 数据处理，适应不同维度的台阵布局
+- **噪声压制**：专门针对地震数据中的相干噪声和随机噪声设计
+- **信号增强**：通过先进的数学变换增强微弱的地下结构信号
+- **适应性**：适用于规则和不规则台阵分布的数据处理
+
+**应用场景：**
+- 压制面波和散射噪声
+- 分离不同传播路径的地震波
+- 改善接收函数数据的空间连续性
+- 提高后续成像处理的质量
+
+#### 4.4.1 `radonTransform2D()`
+
+该函数对接收函数进行2D Radon 变换，利用 Radon 参数进行噪声去除或信号分离。
 
 - **用法**：
   ```matlab
-  DataStruct = radonTransform(DataStruct, RadonParam)
+  DataStruct = radonTransform2D(DataStruct, RadonParam)
   ```
 
 - **输入**：
@@ -199,13 +227,47 @@
 - **输出**：
   - `DataStruct`：更新后的结构数组，包含 Radon 变换后的波形数据。
 
-### 4.5 `rankReduction()`
+#### 4.4.2 `radonTransform3D()`
 
-该函数对接收函数进行非规则网格重建（DRR-OTG），通过减少数据的秩来实现去噪和插值，最终生成降秩后的波形数据。
+该函数对接收函数进行3D Radon 变换，适用于三维台阵数据的处理。
 
 - **用法**：
   ```matlab
-  [gather, d1_otg] = rankReduction(gather, gridStruct, RankReductionParam)
+  DataStruct = radonTransform3D(DataStruct, RadonParam)
+  ```
+
+- **输入**：
+  - `DataStruct`：结构数组，包含处理后的波形数据及相关信息。
+  - `RadonParam`：Radon 变换参数的结构体，包含默认字段如 `lows`、`highs`、`pmax`、`pmin` 等。
+
+- **输出**：
+  - `DataStruct`：更新后的结构数组，包含 Radon 变换后的波形数据。
+
+#### 4.4.3 `rankReduction2D()`
+
+该函数对接收函数进行2D秩降噪处理，通过降低数据秩来实现噪声压制和信号增强。
+
+- **用法**：
+  ```matlab
+  [gather, d1_otg] = rankReduction2D(gather, gridStruct, RankReductionParam)
+  ```
+
+- **输入**：
+  - `gather`：结构数组，包含接收函数数据及相关信息。
+  - `gridStruct`：网格结构体，便于后续的降秩重建。
+  - `RankReductionParam`：降秩重建参数的结构体，包含默认字段如 `nx`、`ny`、`rank`、`K` 等。
+
+- **输出**：
+  - `gather`：更新后的结构数组，包含降秩后的波形数据。
+  - `d1_otg`：重建后的二维数据体。
+
+#### 4.4.4 `rankReduction3D()`
+
+该函数对接收函数进行3D秩降噪处理，适用于三维台阵数据的秩降噪处理。
+
+- **用法**：
+  ```matlab
+  [gather, d1_otg] = rankReduction3D(gather, gridStruct, RankReductionParam)
   ```
 
 - **输入**：
@@ -217,13 +279,47 @@
   - `gather`：更新后的结构数组，包含降秩后的波形数据。
   - `d1_otg`：重建后的三维数据体。
 
-### 4.6 `CCPStacking()`
+#### 4.4.5 `fkFilter()`
 
-该函数对接收函数进行CCP叠加，利用速度模型和CCP参数进行射线追踪和时间到深度的转换，最终生成CCP叠加结果。
+该函数对接收函数进行频率-波数（f-k）滤波，用于压制特定方向的相干噪声。
 
 - **用法**：
   ```matlab
-  ccpResult = CCPStacking(DataStruct, velocityModel, CCPParam)
+  DataStruct = fkFilter(DataStruct, FKParam)
+  ```
+
+- **输入**：
+  - `DataStruct`：结构数组，包含处理后的波形数据及相关信息。
+  - `FKParam`：f-k 滤波参数的结构体，包含默认字段如 `freq_range`、`k_range`、`filter_type` 等。
+
+- **输出**：
+  - `DataStruct`：更新后的结构数组，包含 f-k 滤波后的波形数据。
+
+### 4.5 Imaging Module
+
+imaging 模块是 DenseArrayToolkit 的核心成像模块，实现了多种先进的地震成像算法，用于将接收函数数据转换为地下结构的图像。该模块结合了传统的 CCP 叠加方法和现代的最小二乘偏移技术，能够提供高分辨率的地下结构图像。
+
+**模块特点：**
+- **多尺度成像**：支持从地壳尺度到上地幔尺度的成像
+- **先进算法**：集成了最小二乘偏移等现代成像技术
+- **三维能力**：支持 2D 和 3D 成像，适应不同研究需求
+- **射线追踪**：精确的射线追踪算法确保成像精度
+- **地壳参数估计**：HK 叠加方法提供地壳厚度和 Vp/Vs 比值
+
+**应用场景：**
+- 地壳和上地幔结构的精细成像
+- 莫霍面深度和形态研究
+- 地壳内部不连续面探测
+- 地壳厚度和 Vp/Vs 比值估算
+- 构造边界和断层系统的成像
+
+#### 4.5.1 `CCPCommonEventGather()`
+
+该函数用于创建共事件道集，为后续的 CCP 叠加提供基础数据。
+
+- **用法**：
+  ```matlab
+  eventGather = CCPCommonEventGather(DataStruct, velocityModel, CCPParam)
   ```
 
 - **输入**：
@@ -232,15 +328,15 @@
   - `CCPParam`：CCP参数的结构体，包含经纬度范围、网格参数等。
 
 - **输出**：
-  - `ccpResult`：包含CCP叠加结果的结构体。
+  - `eventGather`：包含共事件道集数据的结果结构体。
 
-### 4.7 `leastSquaresMig()`
+#### 4.5.2 `leastSquaresMig2D()`
 
-该函数对接收函数进行2D最小二乘偏移，利用速度模型和最小二乘偏移参数进行偏移成像，最终生成偏移成像结果。
+该函数对接收函数进行2D最小二乘偏移，利用速度模型和最小二乘偏移参数进行偏移成像。
 
 - **用法**：
   ```matlab
-  MigResult = leastSquaresMig(gather, gridStruct, MigrationParam)
+  MigResult = leastSquaresMig2D(gather, gridStruct, MigrationParam)
   ```
 
 - **输入**：
@@ -251,9 +347,9 @@
 - **输出**：
   - `MigResult`：包含偏移成像结果的结构体，包括水平和深度轴、偏移图像和最小二乘偏移结果。
 
-### 4.8 `leastSquaresMig3D()`
+#### 4.5.3 `leastSquaresMig3D()`
 
-该函数对接收函数进行3D最小二乘偏移，利用速度模型和最小二乘偏移参数进行偏移成像，最终生成偏移成像结果。
+该函数对接收函数进行3D最小二乘偏移，适用于三维台阵数据的偏移成像。
 
 - **用法**：
   ```matlab
@@ -268,9 +364,9 @@
 - **输出**：
   - `MigResult`：包含偏移成像结果的结构体，包括水平和深度轴、偏移图像和最小二乘偏移结果。
 
-### 4.9 `HKstacking()`
+#### 4.5.4 `HKstacking()`
 
-该函数利用接收函数进行HK叠加，计算台站下方地壳厚度和Vp/Vs比值。通过射线追踪和时间到深度的转换，最终生成HK叠加结果。
+该函数利用接收函数进行HK叠加，计算台站下方地壳厚度和Vp/Vs比值。
 
 - **用法**：
   ```matlab
@@ -284,7 +380,11 @@
 - **输出**：
   - `HKresults`：包含HK叠加结果的结构体，包括台站下方地壳厚度、Vp/Vs比值及其误差估计。
 
-### 4.10 `plotCommonEventGather()`
+### 4.6 Visualization Module
+
+visualization 模块提供了一系列数据可视化函数，用于展示地震数据、接收函数和成像结果，帮助用户直观地分析和解释数据。
+
+#### 4.6.1 `plotCommonEventGather()`
 
 该函数用于绘制单个事件的接收函数，展示不同台站的波形。
 
@@ -300,7 +400,7 @@
 - **输出**：
   - 无直接输出，函数在新图形中绘制指定事件的接收函数。
 
-### 4.11 `plotCommonStationGather()`
+#### 4.6.2 `plotCommonStationGather()`
 
 该函数用于绘制同一台站的接收函数道集，展示不同事件的波形。
 
@@ -316,117 +416,201 @@
 - **输出**：
   - 无直接输出，函数在新图形中绘制指定台站的接收函数道集。
 
+#### 4.6.3 `plotCCPResults()`
+
+该函数用于可视化CCP叠加结果，显示地下结构的图像。
+
+- **用法**：
+  ```matlab
+  plotCCPResults(ccpResult)
+  ```
+
+- **输入**：
+  - `ccpResult`：包含CCP叠加结果的结构体。
+
+- **输出**：
+  - 无直接输出，函数在新图形中绘制CCP叠加结果。
+
+#### 4.6.4 `plotMigrationResults()`
+
+该函数用于可视化偏移成像结果，显示地下结构的反射特征。
+
+- **用法**：
+  ```matlab
+  plotMigrationResults(MigResult)
+  ```
+
+- **输入**：
+  - `MigResult`：包含偏移成像结果的结构体。
+
+- **输出**：
+  - 无直接输出，函数在新图形中绘制偏移成像结果。
+
+#### 4.6.5 `plotStations()`
+
+该函数用于绘制台站分布图，显示研究区域的台站位置。
+
+- **用法**：
+  ```matlab
+  plotStations(DataStruct)
+  ```
+
+- **输入**：
+  - `DataStruct`：结构数组，包含台站位置信息。
+
+- **输出**：
+  - 无直接输出，函数在新图形中绘制台站分布图。
+
+#### 4.6.6 `plotEvents()`
+
+该函数用于绘制事件分布图，显示研究区域的地震事件位置。
+
+- **用法**：
+  ```matlab
+  plotEvents(DataStruct)
+  ```
+
+- **输入**：
+  - `DataStruct`：结构数组，包含事件位置信息。
+
+- **输出**：
+  - 无直接输出，函数在新图形中绘制事件分布图。
+
 ---
 
 ## 5. Examples
 
-### 5.1 Rank Reduction Method
+本节详细介绍 demo 文件夹下的四个核心示例脚本，涵盖 DenseArrayToolkit 的主要功能模块。每个示例均包含完整的处理流程、输入输出说明和典型运行方法，适合新用户快速上手和理解工具包的实际应用。
 
-#### 概述
+**示例程序特点：**
+- **完整性**：每个示例均包含从数据读取、预处理、信号处理到结果可视化的全流程
+- **实用性**：基于真实地震数据处理需求设计
+- **可重复性**：参数配置标准化，便于复现
+- **教育性**：脚本内含详细注释，便于学习
 
-`demo_rankReduction.m` 脚本提供了一个完整的工作流程示例，用于介绍阻尼秩约简方法。该脚本旨在引导用户从初始数据获取到高级数据处理和可视化的全过程。
+**学习建议：**
+- 建议按顺序运行示例程序，从基础到高级逐步学习
+- 可根据实际数据和需求调整参数
+- 示例脚本可作为实际项目的模板
 
-#### 详细步骤
+---
 
-1. **设置路径和参数**：
-   - 脚本首先通过 `setupPaths()` 和 `loadConfig()` 设置路径并加载配置参数。
+### 5.1 demo_rankReduction.m —— 阵列接收函数阻尼秩约简处理
 
-2. **读取数据**：
-   - 使用 `read_SAC()` 从指定文件夹读取地震波形数据。脚本检查数据是否成功加载。
+**功能简介：**
+演示如何对地震接收函数进行阻尼秩约简（Damped Rank Reduction, DRR-OTG）处理，实现信号增强与噪声抑制。适用于不规则台阵数据的信号重建。
 
-3. **预处理**：
-   - 使用 `preprocessing()` 对加载的地震波形数据进行预处理。
+**主要流程：**
+1. 路径与参数设置：setupPaths()、loadConfig()，指定数据目录和参数
+2. 数据读取：read_SAC() 读取 SAC 格式地震数据
+3. 预处理：preprocessing() 进行滤波、去均值、重采样等
+4. 接收函数计算：deconv() 反褶积获得接收函数
+5. 阵列阻尼秩约简：rankReduction3D() 对每个事件进行三维重建
+6. 叠加：stackCommonStationGather() 按台站叠加接收函数
+7. 结果输出：可保存处理结果至 mat 文件
 
-4. **计算接收函数**：
-   - 使用 `deconv()` 函数进行去卷积以计算地震接收函数。
+**输入输出说明：**
+- 输入：SAC 格式地震数据目录
+- 输出：秩约简后的接收函数、叠加结果 seisout/depth0、可选 Moho 结构 mohoStruct
 
-5. **阻尼降秩**：
-   - 对每个地震事件，脚本使用 `rankReduction()` 执行重建。它为每个事件重建三维地震数据并存储结果。
+**运行方法：**
+在 MATLAB 命令行运行：
+```matlab
+demo_rankReduction
+```
+确保配置文件和数据路径正确。
 
-6. **叠加接收函数**：
-   - 脚本使用 `stackCommonStationGather()` 按地震台站叠加接收函数，生成叠加后的地震数据和深度轴。
+---
 
-7. **构造导向滤波**：
-   - 后处理涉及结构平滑和倾角计算以提高地震数据质量。
+### 5.2 demo_Stacking.m —— 接收函数叠加与可视化
 
-#### 使用方法
+**功能简介：**
+演示从数据读取、接收函数计算到按台站叠加和多种可视化的完整流程，适合初学者快速体验接收函数分析。
 
-要运行脚本，请确保正确设置所有必要的路径和配置。该脚本设计在 MATLAB 环境中执行，要求所需的函数和地震数据可访问。
+**主要流程：**
+1. 路径与参数设置：setupPaths()、loadConfig()
+2. 数据读取：read_SAC()
+3. 预处理：preprocessing()
+4. 接收函数计算：deconv()
+5. 叠加：stackCommonStationGather()
+6. 可视化：
+   - plotWaveforms() 单道波形
+   - plotCommonStationGather() 台站叠加结果
+   - plotCommonEventGather() 事件道集
+   - plotStations()/plotEvents() 台站与事件分布
 
-### 5.2 CCP Stacking
+**输入输出说明：**
+- 输入：SAC 格式地震数据目录
+- 输出：叠加接收函数 seisout/depth0、可视化图像（可自动保存 PNG）
 
-#### 概述
+**运行方法：**
+在 MATLAB 命令行运行：
+```matlab
+demo_Stacking
+```
+可根据需要修改脚本中的参数和可视化选项。
 
-`demo_CCPStacking.m` 脚本提供了一个完整的工作流程示例，用于介绍CCP叠加方法。该脚本旨在引导用户从初始数据获取到高级数据处理和可视化的全过程。
+---
 
-#### 详细步骤
+### 5.3 demo_Migration_2D.m —— 二维地震成像与对比
 
-1. **设置路径和参数**：
-   - 使用 `setupPaths()` 和 `loadConfig()` 设置路径并加载配置参数。
+**功能简介：**
+演示二维台阵地震成像的完整流程，包括 CCP 叠加与最小二乘偏移（Least-squares Migration）两种方法的对比。适用于二维剖面区域的高分辨率成像。
 
-2. **读取数据**：
-   - 使用 `read_SAC()` 从指定文件夹读取SAC格式的地震数据。
+**主要流程：**
+1. 路径与参数设置：setupPaths()、loadConfig()
+2. 数据读取：read_SAC()
+3. 预处理：preprocessing()
+4. 台阵与事件信息提取：getStations()/getEvents()，方位角筛选
+5. 网格与速度模型构建：createGrid()、getVelocityModel()
+6. 成像处理：
+   - radonTransform2D() 增强信噪比
+   - CCPCommonEventGather() 传统 CCP 叠加
+   - leastSquaresMig2D() 最小二乘偏移
+7. 可视化：plotCCPMigrationResults() 对比显示
+8. 结果保存：write_MigResult() 输出成像结果
 
-3. **预处理**：
-   - 使用 `preprocessing()` 根据配置的预处理参数对数据进行处理。
+**输入输出说明：**
+- 输入：SAC 格式地震数据目录
+- 输出：CCP 叠加与偏移成像结果、可视化图像、mat 文件
 
-4. **获取台阵和事件信息**：
-   - 使用 `getStationInfo()` 和 `getEventInfo()` 提取台站和事件的经纬度信息，并进行方位角一致性筛选。
+**运行方法：**
+在 MATLAB 命令行运行：
+```matlab
+demo_Migration_2D
+```
+可根据实际剖面和数据调整参数。
 
-5. **创建速度模型**：
-   - 使用 `createVelocityModel()` 根据配置文件创建导入或生成速度模型。
+---
 
-6. **计算接收函数**：
-   - 使用 `deconv()` 函数计算接收函数。
+### 5.4 demo_Migration_3D.m —— 三维地震成像与秩约简
 
-7. **CCP叠加**：
-   - 使用 `CCPStacking()` 函数进行CCP叠加，生成叠加结果。
+**功能简介：**
+演示三维台阵地震成像流程，结合三维最小二乘偏移和三维秩约简预处理，适用于大规模密集台阵的体积成像。
 
-8. **结果输出**：
-   - 使用 `plotCCPResults()` 和 `plotCCPXsection()` 可视化CCP叠加结果。
+**主要流程：**
+1. 路径与参数设置：setupPaths()、loadConfig()
+2. 数据读取：read_SAC()
+3. 预处理：preprocessing()
+4. 台阵与事件信息提取：getStations()/getEvents()
+5. 三维网格与速度模型构建：createGrid()、getVelocityModel()
+6. 三维秩约简：rankReduction3D()
+7. 三维成像处理：leastSquaresMig3D()
+8. 叠加：stackImagingResults()
+9. 可视化：visualizeImage() 三维剖面与体视图
 
-#### 使用方法
+**输入输出说明：**
+- 输入：SAC 格式地震数据目录
+- 输出：三维成像体、可视化剖面、mat 文件
 
-要运行该脚本，请确保正确设置所有必要的路径和配置。该脚本设计在 MATLAB 环境中执行，要求所需的函数和数据可访问。
+**运行方法：**
+在 MATLAB 命令行运行：
+```matlab
+demo_Migration_3D
+```
+可根据实际台阵和数据规模调整参数。
 
-### 5.3 Least Squares Migration
-
-#### 概述
-
-`demo_Migration_2D.m` 脚本提供了一个完整的工作流程示例，用于介绍2D地震成像方法。该脚本旨在引导用户从初始数据获取到高级数据处理和可视化的全过程。
-
-#### 详细步骤
-
-1. **设置路径和参数**：
-   - 使用 `setupPaths()` 和 `loadConfig()` 设置路径并加载配置参数。
-
-2. **读取数据**：
-   - 使用 `read_SAC()` 从指定文件夹读取SAC格式的地震波形数据。
-
-3. **预处理**：
-   - 使用 `preprocessing()` 根据配置的预处理参数对数据进行处理。
-
-4. **获取台阵和事件信息**：
-   - 使用 `getStationInfo()` 和 `getEventInfo()` 提取台站和事件的经纬度信息，并进行方位角一致性筛选。
-
-5. **创建规则网格**：
-   - 使用 `createRegularGrid()` 根据配置文件创建规则网格。
-
-6. **创建速度模型**：
-   - 使用 `createVelocityModel()` 根据配置文件创建导入或生成速度模型。
-
-7. **成像处理**：
-   - 使用 `CCPCommonEventGather()` 和 `leastSquaresMig()` 函数进行CCP叠加和最小二乘偏移成像处理，生成成像结果。
-
-8. **可视化**：
-   - 使用 `plotCCPMigrationResults()` 可视化成像结果。
-
-9. **保存结果**：
-   - 使用 `write_MigResult()` 存储成像结果。
-
-#### 使用方法
-
-要运行该脚本，请确保正确设置所有必要的路径和配置。该脚本设计在 MATLAB 环境中执行，要求所需的函数和数据可访问。
+---
 
 ---
 

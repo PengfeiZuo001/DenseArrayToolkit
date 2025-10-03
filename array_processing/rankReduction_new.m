@@ -54,7 +54,7 @@ stationList = getStations(gather);
 stlo = [stationList.stlo]';  
 stla = [stationList.stla]';
 
-% 每个地震台站在投影坐标系中的笛卡尔坐标
+% location of every station in the projected coordinate
 [rx, ry] = latlonToProjectedCoords(stlo, stla, gridStruct);
 
 %% 3. Collect RF data into matrix d0
@@ -100,7 +100,6 @@ scatter(Xgrid(:),Ygrid(:),5,'k','filled','o');
 xlabel('X (km)')
 ylabel('Y (km)')
 set(gca,'fontsize',14)
-% export_fig './figures/BY_rank_grid.png' '-r300'
 %% 5. DRR-OTG reconstruction
 % call drr3drecon_otg
 [d1_otg, d1] = drr3drecon_otg(...

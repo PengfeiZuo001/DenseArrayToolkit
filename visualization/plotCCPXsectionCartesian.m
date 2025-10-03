@@ -1,4 +1,4 @@
-function [distAll,depthAll,VAll] = plotCCPXsectionCartesian(X,Y,Z,V,gridStruct,profile)
+function [distAll,depthAll,VAll] = plotCCPXsectionCartesian(X,Y,Z,V,gridStruct,profile,dem)
 %% create 2D cross-section
 % function [distAll,depthAll,VAll] = plotCCPXsectionCartesian(X,Y,Z,V,gridStruct,profile)
 
@@ -7,15 +7,14 @@ depth0 = 0:0.5:max(Z(:));
 % load colormap
 cmap = load('./visualization/colormap/roma.mat');
 % load DEM
-dem = load('./visualization/Qaidam_DEM.mat');
-% dem = load('./visualization/Baiyanebo_DEM_small.mat');
-demX = X(:,:,1);
-demY = Y(:,:,1);
-[nx,ny] = size(demX);
-[LON, LAT] = ProjectedCoordsTolatlon(demX(:),demY(:), gridStruct);
-demZ = interp2(dem.demLon,dem.demLat,dem.demZ,LON,LAT)/1000.;
-demZ = reshape(demZ,nx,ny);
-
+if ~isempty(dem)
+    demX = X(:,:,1);
+    demY = Y(:,:,1);
+    [nx,ny] = size(demX);
+    [LON, LAT] = ProjectedCoordsTolatlon(demX(:),demY(:), gridStruct);
+    demZ = interp2(dem.demLon,dem.demLat,dem.demZ,LON,LAT)/1000.;
+    demZ = reshape(demZ,nx,ny);
+end
 figure;
 set(gcf,'Position',[0 0 1000 1000],'Color','w')
 ax1 = subplot(1,1,1);
@@ -23,8 +22,7 @@ hold on;
 h = slice(X,Y,Z,V,[],[],100);
 colormap(ax1, flipud(cmap.roma));  % 为波形数据设置不同的色标
 cmax = 2*rms(V(:));  % 计算色标的最大值
-% caxis([-cmax, cmax]);  % 设置波形数据的色标范围
-caxis([-0.05 0.05])
+caxis([-cmax, cmax]);  % 设置波形数据的色标范围
 % colorbar;  % 为波形数据显示colorbar
 
 
@@ -61,15 +59,14 @@ for n = 1:length(profile)
     Z_profile = repmat(depth0',1,length(xp));
     DIST_profile = repmat(dist0',length(depth0),1);
     Vprofile = F(X_profile,Y_profile,Z_profile);
-    Vprofile(isnan(Vprofile)) = NaN;
+    Vprofile(isnan(Vprofile)) = 0;
 
     scatter(xp,yp,50,'ko','filled');
     surface(X_profile,Y_profile,Z_profile,Vprofile,'EdgeColor','none')
 
     colormap(flipud(cmap.roma))
     cmax = 2*rms(Vprofile(:));
-%     caxis([-cmax,cmax]);
-    caxis([-0.025 0.025])
+    caxis([-cmax,cmax]);
     
     grid on; box on;
     view(140,20)
@@ -80,9 +77,9 @@ for n = 1:length(profile)
     depthAll = [depthAll,Z_profile];
     VAll = [VAll, Vprofile];
     % extract surface elevation from DEM file
-    [lonp, latp] = ProjectedCoordsTolatlon(xp, yp, gridStruct);
-    elevp = interp2(dem.demLon,dem.demLat,dem.demZ,lonp,latp)/1000.;
-    elevAll = [elevAll; elevp];
+%     [lonp, latp] = ProjectedCoordsTolatlon(xp, yp, gridStruct);
+%     elevp = interp2(dem.demLon,dem.demLat,dem.demZ,lonp,latp)/1000.;
+%     elevAll = [elevAll; elevp];
 end
 zlim([-50 100])
 distElev = distAll(1,:)';
@@ -91,14 +88,15 @@ ax2 = axes('Position', ax1.Position, ...
            'Color', 'none', ...       % 背景透明
            'XTick', [], 'YTick', [], 'ZTick', [], ...
            'View', ax1.View); % 隐藏坐标刻度
-demZ = -30*demZ/max(demZ(:));
-hdem = surface(ax2,demX,demY,demZ); hold on;
-% extract station elevation
-rx = gridStruct.rx(:,1);
-ry = gridStruct.ry(:,2);
-rz = interp2(demX,demY,demZ,rx,ry);
-scatter3(ax2,rx,ry,rz,100,'^','MarkerFaceColor','r','MarkerEdgeColor','k');
-% scatter3(ax2,demX(:),demY(:),-demZ(:),30,demZ(:),'filled')
+if ~isempty(dem)
+    demZ = -30*demZ/max(demZ(:));
+    hdem = surface(ax2,demX,demY,demZ); hold on;
+    % extract station elevation
+    rx = gridStruct.rx(:,1);
+    ry = gridStruct.ry(:,2);
+    rz = interp2(demX,demY,demZ,rx,ry);
+    scatter3(ax2,rx,ry,rz,100,'^','MarkerFaceColor','r','MarkerEdgeColor','k');
+end
 colormap(ax2,'parula')
 set(hdem,'EdgeColor','none','FaceAlpha',0.8)
 zlim([ax1.ZLim])
@@ -106,26 +104,3 @@ xlim([ax1.XLim])
 ylim([ax1.YLim])
 set(ax2,'ZDir','reverse','Visible','off')
 linkaxes([ax1,ax2])
-
-
-% fig = figure();
-% set(gcf,'Position',[50 50 1200 600],'Color','w')
-% subplot(511,'Parent',fig)
-% plot(distElev,elevAll,'k','linewidth',2);
-% patch([distElev(1);distElev;distElev(end)],[0;elevAll;0],[0.8 0.8 0.8]);
-% ylabel('Elev. (km)')
-% xlim([0 max(distAll(1,:))]);
-% set(gca,'fontsize',14)
-% % ylim([1 6]);
-% ylim([0 3]);
-% subplot(5,1,2:5,'Parent',fig);
-% h = pcolor(distAll,depthAll,VAll);
-% ylim([0 100]);
-% colormap(flipud(cmap.roma))
-% cmax = rms(VAll(:));
-% caxis([-cmax,cmax]);
-% set(h,'EdgeColor','none')
-% axis ij
-% xlabel('Distance (km)')
-% ylabel('Depth (km)')
-% set(gca,'fontsize',14)

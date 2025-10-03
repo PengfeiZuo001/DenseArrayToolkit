@@ -1,159 +1,163 @@
 %% demo_rankReduction.m
-%  This script demonstrates a complete workflow for receiver function computation 
-%  and "Rank Reduction". The process includes reading data, computing receiver 
-%  functions, multi-event reconstruction and stacking, and final visualization.
-%  Main steps include:
-%    0. Setup paths and parameters
-%    1. Read data
-%    2. Preprocessing
-%    3. Compute receiver functions
-%    4. Perform rank reduction (DRR-OTG) for each event
-%    5. Stack receiver functions
+% DEMO_RANKREDUCTION - Demonstration of Rank Reduction Method for Receiver Function Processing
+%
+% This script demonstrates a complete workflow for receiver function computation 
+% and rank reduction using the Damped Rank Reduction with Off-the-Grid (DRR-OTG)
+% method. The process includes reading seismic data, preprocessing, computing 
+% receiver functions, applying rank reduction for signal enhancement, and 
+% stacking the results for imaging.
+%
+% Key Features:
+% - Reads SAC format seismic waveforms
+% - Preprocesses data (filtering, resampling, alignment)
+% - Computes receiver functions using iterative deconvolution
+% - Applies 3D rank reduction for signal enhancement and noise suppression
+% - Stacks receiver functions by station for final imaging
+%
+% Methodology:
+% Rank reduction is a signal processing technique that exploits the low-rank
+% structure of seismic data in the frequency-space domain to separate coherent
+% signals from random noise. The DRR-OTG method handles irregular station
+% geometries by reconstructing data on a regular grid while preserving the
+% original signal characteristics.
 
 clear; clc; close all;
 
-%% 0. Setup paths and parameters
+%% 0. Setup Paths and Parameters
 % --------------------------------------------------
-try
-    setupPaths();  % Add project toolboxes or codes to MATLAB path
-catch ME
-    warning('setupPaths() not found or failed: %s\nUsing current path instead.', ME.message);
-end
+% Add project toolboxes and dependencies to MATLAB path
+setupPaths();
 
-% Load configuration
-if exist('loadConfig','file') == 2
-    config = loadConfig();
-else
-    error('No loadConfig() found. Please implement or provide config structure.');
-end
+% Load configuration parameters for all processing steps
+config = loadConfig();
 
-% Extract commonly used fields from config
-% dataFolder = config.dataFolder;
+% Define data folder containing SAC waveform files
 dataFolder = './data/event_waveforms_BY';
-PreprocessingParam = config.PreprocessingParam;
-DeconvParam        = config.DeconvParam;
-RankReductionParam = config.RankReductionParam;
 
-%% 1. Read data
+% Extract processing parameters from configuration
+PreprocessingParam = config.PreprocessingParam;  % Data preprocessing settings
+DeconvParam        = config.DeconvParam;         % Receiver function computation
+RankReductionParam = config.RankReductionParam;  % Rank reduction parameters
+
+fprintf('=== Rank Reduction Demo for Receiver Function Processing ===\n');
+
+%% 1. Read Seismic Data
 % --------------------------------------------------
-fprintf('\n[Step 1] Reading SAC data from folder: %s\n', dataFolder);
+% Read SAC format waveform data from specified directory
+% DataStruct contains organized seismic traces with station and event metadata
+fprintf('\n[Step 1] Reading SAC waveform data from: %s\n', dataFolder);
 DataStruct = read_SAC(dataFolder);
 if isempty(DataStruct)
-    error('No data read from %s. Check if files exist.', dataFolder);
+    error('No seismic data found in %s. Please check the data folder path.', dataFolder);
 end
+fprintf('   Successfully loaded %d seismic traces\n', length(DataStruct));
 
-%% 2. Preprocessing
+%% 2. Data Preprocessing
 % --------------------------------------------------
-fprintf('\n[Step 2] Preprocessing data...\n');
+% Apply standard preprocessing steps to prepare data for receiver function analysis:
+% - Bandpass filtering (0.1-2.0 Hz typical for receiver functions)
+% - Time window selection around P-wave arrival
+% - Resampling to consistent sampling rate
+% - Rotation to radial and transverse components
+fprintf('\n[Step 2] Preprocessing seismic data...\n');
 DataStruct = preprocessing(DataStruct, PreprocessingParam);
+fprintf('   Preprocessing completed successfully\n');
 
-%% 3. Compute receiver functions
+%% 3. Receiver Function Computation
 % --------------------------------------------------
-fprintf('\n[Step 3] Computing receiver functions (deconvolution)...\n');
-DeconvParam.verbose = false;
+% Compute receiver functions using iterative deconvolution:
+% - Deconvolves vertical component from radial component
+% - Estimates Earth's impulse response beneath each station
+% - Uses water-level stabilization and Gaussian filtering
+fprintf('\n[Step 3] Computing receiver functions using iterative deconvolution...\n');
+DeconvParam.verbose = false;  % Suppress detailed output for cleaner demo
 DataStruct = deconv(DataStruct, DeconvParam);
+fprintf('   Receiver function computation completed\n');
 
-%% 4. Perform rank reduction (DRR-OTG) for each event
+%% 4. Rank Reduction Processing (DRR-OTG Method)
 % --------------------------------------------------
-fprintf('\n[Step 4] Doing rank reduction (DRR-OTG) for each event...\n');
-dx = 10;
-dy = 10;
-dz = 1;
-zmax = 100;
-xpad = 50;
-ypad = 50;
+% Apply rank reduction to enhance signal-to-noise ratio and reconstruct
+% coherent signals from irregular station geometries
+fprintf('\n[Step 4] Applying rank reduction (DRR-OTG) for signal enhancement...\n');
+
+% Define 3D grid parameters for spatial reconstruction
+dx = 10;    % Grid spacing in x-direction (km)
+dy = 10;    % Grid spacing in y-direction (km) 
+dz = 1;     % Grid spacing in z-direction (depth, km)
+zmax = 100; % Maximum depth for imaging (km)
+xpad = 50;  % Padding in x-direction for boundary handling (km)
+ypad = 50;  % Padding in y-direction for boundary handling (km)
+
+% Create regular grid structure for spatial reconstruction
 gridStruct = createGrid(DataStruct, dx, dy, dz, zmax, xpad, ypad);
 
-eventList = getEvents(DataStruct);  % Returns struct array of event info
+% Get list of unique seismic events in the dataset
+eventList = getEvents(DataStruct);
 eventIDs  = {eventList.evid};
-DataStructDRR = [];  % Store reconstruction results
+fprintf('   Processing %d seismic events...\n', length(eventIDs));
 
-minStationCount = 50; % Threshold: skip if event has fewer stations than this
+% Initialize structure for storing rank-reduced results
+DataStructDRR = [];
+minStationCount = 50;  % Minimum stations per event for reliable rank reduction
 
+% Process each event individually
 for iEvent = 1:length(eventIDs)
     evid = eventIDs{iEvent};
+    
+    % Extract all receiver functions for current event
     [gather, matchIndex] = getCommonEventGather(DataStruct, evid);
-
+    
+    % Skip events with insufficient station coverage
     if length(gather) < minStationCount
-        fprintf('Event %s only has %d stations (<%d). Skipped.\n', ...
+        fprintf('   Event %s: Only %d stations (minimum %d required) - Skipping\n', ...
             evid, length(gather), minStationCount);
         continue;
     end
-
-    % Call rankReduction for 3D data reconstruction of this event
-    % gather => [ gather(i).RF.itr ...], gather(i).StationInfo ...
+    
+    fprintf('   Processing event %s with %d stations...\n', evid, length(gather));
+    
+    % Apply 3D rank reduction using DRR-OTG method
+    % - reconstructs coherent signals while suppressing random noise
+    % - handles irregular station geometries through off-the-grid reconstruction
     [gatherReconstructed, d1_otg] = rankReduction3D(gather, gridStruct, RankReductionParam);
-
-    % Merge results into DataStruct_drr
+    
+    % Store reconstructed receiver functions
     DataStructDRR = [DataStructDRR; gatherReconstructed(:)];
-
-    % For debugging/visualization of d1_otg, implement here or in rankReduction
-    close all;  % To prevent too many figure windows
 end
 
-% Transpose results back to DataStruct-like shape (if needed)
+% Transpose results to match original DataStruct format
 DataStructDRR = DataStructDRR';
+fprintf('   Rank reduction completed for %d events\n', length(DataStructDRR));
 
-%% 5. Stack receiver functions
+%% 5. Stack Receiver Functions
 % --------------------------------------------------
+% Stack rank-reduced receiver functions by station to enhance coherent signals
+% and create final images of subsurface structure
 fprintf('\n[Step 5] Stacking receiver functions by station...\n');
 
-% stackCommonStationGather() assumes stacking multiple events for the same station
-% Output: seisout => stacked data, depth0 => depth axis, mohoStruct => optional Moho depth
+% Stack common station gathers to improve signal-to-noise ratio
+% - Aligns receiver functions from different events for each station
+% - Averages aligned traces to suppress random noise
+% - Produces high-quality station stacks for imaging
 [seisout, depth0, mohoStruct] = stackCommonStationGather(DataStructDRR);
 
-fprintf('\nDone! All steps completed.\n');
+fprintf('   Stacking completed successfully\n');
+fprintf('   Output dimensions: %d stations x %d depth points\n', ...
+    size(seisout, 2), size(seisout, 1));
 
-%% 6. Structural oriented filter (post-processing)
-% Get station info
-stationList = getStations(DataStructDRR);
-% stationList should have fields .stlo, .stla
-% Flatten stlo, stla to vector if needed
-stlo = [stationList.stlo]';  
-stla = [stationList.stla]';
+%% 6. Results Summary and Output
+% --------------------------------------------------
+fprintf('\n=== Processing Summary ===\n');
+fprintf('Input data:  %d seismic traces from %d events\n', length(DataStruct), length(eventIDs));
+fprintf('Output data: %d rank-reduced receiver functions\n', length(DataStructDRR));
+fprintf('Final stacks: %d station stacks\n', size(seisout, 2));
+fprintf('Depth range: 0 to %d km\n', max(depth0));
 
-% transform lat lon to x y (relative to param.lonmin, param.latmin)
- [rx, ry] = latlonToProjectedCoords(stlo, stla, gridStruct);
-% shift to ensure min coordinate=0
-rx = rx - min(rx);
-ry = ry - min(ry);
-param = RankReductionParam;
-% store for reference
-param.x = rx;  % unregular location 
-param.y = ry;
+% Optional: Save results for further analysis
+if config.saveResults
+    outputFile = fullfile(config.outputFolder, 'rankReduction_results.mat');
+    save(outputFile, 'DataStructDRR', 'seisout', 'depth0', 'mohoStruct', 'config');
+    fprintf('Results saved to: %s\n', outputFile);
+end
 
-% Define grid
-param.ox = 0;  % origin x
-param.oy = 0;  % origin y
-param.mx = ceil(max(rx));  % max value of x
-param.my = ceil(max(ry));  % max value of y
-
-
-dt = 0.1;
-
-d0 = seisout;
-[d1_otg, d1] = drr3drecon_otg(...
-    d0, rx, ry, ...
-    param.nx, param.ny, ...
-    param.ox, param.oy, param.mx, param.my, ...
-    param.flow, param.fhigh, dt, ...
-    param.rank, param.K, param.niter, param.eps, ...
-    param.verb, param.mode);
-
-% 3D slope calculation (inline and xline)
-% default parameter values are suitable for most cases
-[dipi,dipx] = str_dip3d(d1_otg);
-
-% Structural smoothing
-r1=2;
-r2=2;
-eps=0.01;
-order=2;
-
-d1_otg_str=str_pwsmooth_lop3d(d1_otg,dipi,dipx,r1,r2,eps,order);
-
-figure;
-subplot(211)
-imagesc(reshape(d1_otg,201,11*14))
-subplot(212)
-imagesc(reshape(d1_otg_str,201,11*14))
+fprintf('\n=== Rank Reduction Demo Completed Successfully ===\n');

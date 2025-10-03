@@ -26,7 +26,7 @@ function [lsmig,pre_rf] = runLSM(rfshift,take_off,back_az,src_func,save_wavefiel
     %% 
     dsrc = genPlaneWave(src_func,take_off,back_az,xo,yo,x,y,vp,nt,dt,src_type,fpeak);
     
-    %%  
+    %%  dot product test
     % S=repmat(squeeze(any(dsrc)),1,1,size(dsrc,1));
     % S=permute(S,[3,1,2]);
     % S=S(:);

@@ -116,7 +116,7 @@ MigResult.Z = Z;
 %% ------------------------------------------------------------------------
 %  (9) Plot migration results
 
-plotResults(mig,pre_rfm,lsmig,pre_rflsm,param,mask);
+% plotResults(mig,pre_rfm,lsmig,pre_rflsm,param,mask);
 
 
 end

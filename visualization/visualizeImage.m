@@ -22,6 +22,7 @@ function [profileStruct] = visualizeImage(ccpResult, gridStruct, options)
 %                    .radius: Smoothing radius (default: 3)
 %                    .eps: Regularization parameter (default: 0.01)
 %                    .order: Smoothing order (default: 2)
+%                .dem: DEM data
 %
 % Outputs:
 %   profileStruct - Structure containing profile information:
@@ -48,6 +49,9 @@ if ~isfield(options, 'displayMode')
     options.displayMode = 'both';
 end
 
+if ~isfield(options, 'dem')
+    options.dem = [];
+end
 % if ~isfield(options, 'smoothingParams')
 %     options.smoothingParams = struct('radius', 3, 'eps', 0.01, 'order', 2);
 % end
@@ -152,13 +156,17 @@ end
 %% Process Profiles
 % Convert selected points to profile format for plotCCPXsectionCartesian
 profileAll = {};
+nprofile = 0;
 for n = 1:length(xpoints)-1
-    profile = [xpoints(n), ypoints(n); xpoints(n+1), ypoints(n+1)];
-    profileAll{n} = profile;
+    if ~isnan(xpoints(n)) && ~isnan(xpoints(n+1))
+        nprofile = nprofile + 1;
+        profile = [xpoints(n), ypoints(n); xpoints(n+1), ypoints(n+1)];
+        profileAll{nprofile} = profile;
+    end
 end
 
 % Call plotCCPXsectionCartesian for profile visualization
-[distAll, depthAll, VAll] = plotCCPXsectionCartesian(X, Y, Z, V, gridStruct, profileAll);
+[distAll, depthAll, VAll] = plotCCPXsectionCartesian(X, Y, Z, V, gridStruct, profileAll,options.dem);
 
 % Calculate structural dips and apply filtering if requested
 if isfield(options, 'smoothingParams')

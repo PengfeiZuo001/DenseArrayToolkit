@@ -1,8 +1,8 @@
-function MigResult = leastSquaresMig(gather, gridStruct, param)
+function MigResult = leastSquaresMig2D(gather, gridStruct, param)
 % LEASTSQUARESMIG  Perform least squares migration (LSM) on seismic data.
 %
 % Usage:
-%   MigResult = leastSquaresMig(gather, gridStruct, param)
+%   MigResult = leastSquaresMig2D(gather, gridStruct, param)
 %
 % Inputs:
 %   gather         : A struct array of seismic traces for one event or gather.

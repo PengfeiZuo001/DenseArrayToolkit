@@ -10,7 +10,8 @@
 %   3. Get array and event information - Extract metadata for 3D processing
 %   4. Create velocity model - Set up 3D velocity structure for migration
 %   5. Migration imaging - Perform 3D least-squares migration
-%   6. Save results - Store processed 3D imaging results
+%   6. Stacking - Combine results from multiple events
+%   7. Visualization - Display 3D imaging results
 %
 % This script implements 3D least-squares migration with rank reduction
 % preprocessing for improved imaging quality in dense array applications.
@@ -19,7 +20,7 @@ clear; clc; close all;
 
 %% 0. Setup paths and parameters
 % Initialize the processing environment by adding necessary functions and
-% dependencies to the MATLAB path. This ensures access to all required
+% dependencies to the MhATLAB path. This ensures access to all required
 % processing routines in the DenseArrayToolkit.
 cd ../
 setupPaths();
@@ -99,36 +100,35 @@ gridStruct = createGrid(DataStruct, dx, dy, dz, zmax, xpad, ypad);
 npts = 5;
 gridStruct = getVelocityModel('3D', gridStruct, npts);
 
-%% update param of rank reduction
-% note: regular grid is greater than stations (rx,ry)
-% This part needs to be updated to make it more concise!!!
-RankReductionParam.nx = gridStruct.nx;
-RankReductionParam.ny = gridStruct.ny;
-RankReductionParam.ox = min(gridStruct.x); 
-RankReductionParam.oy = min(gridStruct.y); 
-RankReductionParam.mx = max(gridStruct.x);
-RankReductionParam.my = max(gridStruct.y);
-RankReductionParam.rank = 10;
-
+%% Update rank reduction parameters for 3D processing
+% Configure rank reduction parameters based on the 3D grid structure
+% This ensures the rank reduction processing aligns with the imaging volume
+RankReductionParam.nx = gridStruct.nx;    % Number of grid points in x-direction
+RankReductionParam.ny = gridStruct.ny;    % Number of grid points in y-direction
+RankReductionParam.ox = min(gridStruct.x); % Minimum x-coordinate of grid
+RankReductionParam.oy = min(gridStruct.y); % Minimum y-coordinate of grid
+RankReductionParam.mx = max(gridStruct.x); % Maximum x-coordinate of grid
+RankReductionParam.my = max(gridStruct.y); % Maximum y-coordinate of grid
+RankReductionParam.rank = 10;             % Initial rank for reduction
+RankReductionParam.rank = 5;
+RankReductionParam.fhigh = 2.4;
 %% 5. Migration imaging
 % Perform 3D least-squares migration with rank reduction preprocessing:
 % - Standard 3D migration
 % - 3D least-squares migration for improved resolution
 % - Rank reduction preprocessing for noise suppression
 %
-% Initialize structure to store migration results farom all events
-% migResults = [];
+% Initialize structures to store migration results from all events
+migResults = [];
 ccpResults = [];
-nMigratedEvents = 1;    % Counter for successfully processed events
+nMigratedEvents = 0;    % Counter for successfully processed events
 
 % Set up 3D migration parameters based on grid structure
 MigParam.paramMig = setMigParam3D(gridStruct);
 
-minTrace = 100; % Minimum number of traces required for CCP imaging
-minSNR = 3;    % Minimum SNR of the RF required for CCP imaging
+minTrace = 100; % Minimum number of traces required for migration imaging
+minSNR = 3;    % Minimum SNR of the RF required for migration imaging
 
-migResults = [];
-ccpResults = [];
 % Process each event in the dataset
 for iEvent = 1:length(eventid)
     evid = eventid{iEvent}; 
@@ -136,11 +136,13 @@ for iEvent = 1:length(eventid)
     % Extract seismic records for current event (Common Event Gather)
     % This groups all recordings of the same event across different stations
     gather = getCommonEventGather(DataStruct, evid);
-    % Extract the SNR
+    
+    % Extract signal-to-noise ratios for quality control
     snrAll = cell2mat(cellfun(@(rf) rf.snr, {gather.RF}, 'UniformOutput', false));    
-    % Quality control: Skip events with insufficient station coverage
+    
+    % Quality control: Skip events with insufficient station coverage or low SNR
     % Minimum minTrace stations required to ensure reliable 3D imaging results
-    if length(gather) < minTrace || mean(snrAll)< minSNR
+    if length(gather) < minTrace || mean(snrAll) < minSNR
         continue
     end
     
@@ -150,62 +152,28 @@ for iEvent = 1:length(eventid)
     gather = deconv(gather, DeconvParam);
 
     % Apply rank reduction preprocessing to improve signal quality
-    % This helps suppress noise and enhance coherent signals
-    MigParam.paramMig.isReconRFs=1;
-    MigParam.gauss = 5;
-    MigParam.tmax = 80;
-    if MigParam.paramMig.isReconRFs
-        RankReductionParam.rank = 5;
-        RankReductionParam.fhigh = 2.4;
-        [gatherDRR, d1_otg] = rankReduction_new(gather, gridStruct, RankReductionParam);
-        MigParam.paramMig.dotg = d1_otg;
-        itrCell = {gather.RF};
-        d0 = cell2mat(cellfun(@(rf) rf.itr, itrCell,'UniformOutput', false));
-        itrCell = {gatherDRR.RF};
-        d1 = cell2mat(cellfun(@(rf) rf.itr, itrCell,'UniformOutput', false));
-        t = gather(1).RF.ittime;
-        figure;
-        set(gcf,'Position',[100 100 1200 600],'Color','w')
-        ax1=subplot(121);
-        imagesc(1:length(gather),t(30:300),d0(30:300,:))
-        caxis([-0.1 0.1])
-        colormap(seismic(1))
-        xlabel('Trace Number')
-        ylabel('Time (s)')
-        set(ax1,'fontsize',14)
-        ax2=subplot(122);
-        imagesc(1:length(gather),t(30:300),d1(30:300,:))
-        caxis([-0.1 0.1])
-        xlabel('Trace Number')
-        ylabel('Time (s)')
-        set(ax2,'fontsize',14)
-        export_fig(['./figures/BY_rank_',num2str(evid),'.png'], '-r300');
-
-        figure;
-        d3d = permute(d1_otg,[2,3,1]);
-        [nx,ny,nt] = size(d3d);
-        h=slice(d3d,round(ny/2),round(nx/2),80);
-        set(h,'EdgeColor','none');
-        colormap(seismic(1))
-        set(gca,'ZDir','reverse')
-        caxis([-0.1 0.1])
-        zlim([0 300])
-        export_fig(['./figures/BY_rank_3D_',num2str(evid),'.png'], '-r300');
-    end
+    % This helps suppress noise and enhance coherent signals for better imaging
+    RankReductionParam.plotRankReduction = 1;
+    [gatherDRR, d1_otg] = rankReduction3D(gather, gridStruct, RankReductionParam);
+    
     % Perform 3D least-squares migration
     % This method provides improved resolution compared to standard migration
+    MigParam.gauss = DeconvParam.gauss;     % Gaussian factor for source time function
+    MigParam.tmax = 80;                     % Maximum length of the RF waveform
+    MigParam.paramMig.isReconRFs = 1;       % Flag control use the reconstructed data or not
+    MigParam.paramMig.dotg = d1_otg;        % Save reconstructed data
     migResult = leastSquaresMig3D(gatherDRR, gridStruct, MigParam);
 
     % Store migration results for current event
     % mig - Standard 3D migration results
     % migls - 3D least-squares migration results
     migResults = [migResults; migResult];
- 
-
+    
+    % Perform CCP stacking for comparison with migration results
     ccpResult = CCPCommonEventGather(gatherDRR, gridStruct, CCPParam);
     ccpResults = [ccpResults; ccpResult];
 
-    % Pause for visualization (can be removed for batch processing)
+    % Optional pause for visualization (can be removed for batch processing)
 %     pause;
     
     % Close all figure windows to avoid memory issues during batch processing
@@ -213,45 +181,26 @@ for iEvent = 1:length(eventid)
     nMigratedEvents = nMigratedEvents + 1;
 end
 %% 6. Stacking
-% ccpImage = stackImagingResults(ccpResults);
-% migImage = stackImagingResults(migResults);
+% Combine imaging results from all processed events using stackImagingResults
+% This function averages migration results and normalizes CCP results by count
+% to create consolidated 3D image volumes for visualization
+ccpImage = stackImagingResults(ccpResults);
+migImage = stackImagingResults(migResults);
 
 %% 7. Visualization
-V = zeros(size(migResults(1).mig));
-for n=1:length(migResults)
-    V = V+migResults(n).migls;
-end
-V = V/length(migResults);
-V = permute(V,[3,2,1]);
-migResult.V = V;
+% Display 3D imaging results using interactive visualization tools
+% This includes volume slicing and cross-section profiling for both
+% migration and CCP stacking results
 
-count = 0;
-for n=1:length(ccpResults)
-    V = V+ccpResults(n).img;
-    count = count+ccpResults(n).count;
-end
-ccpResult.V = V./max(count,1);
-
-% Configure visualization options
+% Configure visualization options for predefined profiles
 options = struct();
-options.profileType = 'predefined';  % Enable interactive profile selection
-% options.smoothingParams = struct(...
-%     'radius', 3, ...        % Smoothing radius
-%     'eps', 0.01, ...       % Regularization parameter
-%     'order', 2);           % Smoothing order
-% N-S profile crossing Baiyan Obo minning area
-options.profilePoints(:,1) = [76.6927 76.6927 nan 0 200];
-options.profilePoints(:,2) = [0 150 nan 66.9016 66.9016];
-% E-W profile crossing Baiyan Obo minning area
-% options.profilePoints(:,1) = [0; 200];
-% options.profilePoints(:,2) = [66.9016; 66.9016];
+options.profileType = 'predefined';  % Use predefined profile paths
 
-visualizeImage(migResult, gridStruct, options);
-visualizeImage(ccpResult, gridStruct, options);
-% pointA = [76.6927, 66.9016, 0]; % 点A (x1,y1,z1)
-% pointB = [76.6927, 66.9016, 100]; % 点B (x2,y2,z2)
-% lx = [pointA(1), pointB(1)];
-% ly = [pointA(2), pointB(2)];
-% lz = [pointA(3), pointB(3)];
-% hold on;
-% plot3(lx, ly, lz, '--','LineWidth', 2,'Color', [0.5 0.5 0.5]);
+% Define North-South profile crossing Baiyan Obo mining area
+options.profilePoints(:,1) = [76.6927   76.6927 nan 0       200];
+options.profilePoints(:,2) = [0         150     nan 66.9016 66.9016];
+options.dem = load('./visualization/Baiyanebo_DEM_small.mat');
+
+% Visualize stacked migration and CCP results
+visualizeImage(migImage, gridStruct, options);
+visualizeImage(ccpImage, gridStruct, options);

@@ -146,8 +146,28 @@ for k = 1:length(validIdx)
 end
 
 if param.plotRankReduction
-    figure; imagesc(1:length(gather)*2,t,[d0 d1])
+    % Visualize rank reduction results for quality assessment
+    % Create comparison figure for original vs rank-reduced data
+    figure;
+    set(gcf,'Position',[100 100 1200 600],'Color','w')
+    ax1 = subplot(121);
+    imagesc(1:length(gather), t, d0)
+    ylim([0 30])
     caxis([-0.1 0.1])
-    colormap(seismic(3))
+    colormap(seismic(1))
+    xlabel('Trace Number')
+    ylabel('Time (s)')
+    title('Original Receiver Functions')
+    set(ax1,'fontsize',14)
+    
+    ax2 = subplot(122);
+    imagesc(1:length(gather), t, d1)
+    ylim([0 30])
+    caxis([-0.1 0.1])
+    xlabel('Trace Number')
+    ylabel('Time (s)')
+    title('Rank-Reduced Receiver Functions')
+    set(ax2,'fontsize',14)
+%     export_fig(['./figures/BY_rank_',num2str(evid),'.png'], '-r300');
 end
 end
