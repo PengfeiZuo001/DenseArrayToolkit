@@ -26,7 +26,7 @@ function [gather, reconGrid] = rankReduction2D(gather, gridStruct, param)
 %   d1_otg - the 2D data volume in time-x after DRR-OTG reconstruction (if same size as d0)
 %
 % Dependencies:
-%   getStations, latlon2xy, drr_bin3d, drr3drecon_otg 
+%   getStations, latlon2xy, drr2drecon_otg 
 %
 % Author: Yunfeng Chen
 % Date:   Jan. 27, 2025
@@ -55,34 +55,26 @@ stlo = [stationList.stlo]';
 stla = [stationList.stla]';
 
 % transform lat lon to x y (relative to param.lonmin, param.latmin)
- [rx, ry] = latlonToProjectedCoords(stlo, stla, gridStruct);
+[rx, ry] = latlonToProjectedCoords(stlo, stla, gridStruct);
 % shift to ensure min coordinate=0
 rx = rx - min(rx);
 ry = ry - min(ry);
 
+% For 2D processing, we only use x coordinates
 % store for reference
 param.x = rx;  % unregular location 
-param.y = ry;
-
+param.nx = length(rx);  % unregular location 
 %% 2. Define grid
 param.ox = 0;  % origin x
-param.oy = 0;  % origin y
 param.mx = ceil(max(rx));  % max value of x
-% param.my = ceil(max(ry));  % max value of y
-param.my = 0; % force the data to be 2D by only considering the x direction
 
 dx = (param.mx - param.ox) / (param.nx - 1);
-dy = (param.my - param.oy) / (param.ny - 1);
 
 xout = param.ox : dx : param.mx;  % regular x-grid
-yout = param.oy : dy : param.my;  % regular y-grid
 
 xx=param.ox+[0:param.nx-1]*dx;
-yy=param.oy+[0:param.ny-1]*dy;
-[Xgrid,Ygrid] = meshgrid(xx,yy);
 
 reconGrid.x = xout;
-reconGrid.y = yout;
 % figure; 
 % plot(rx,ry,'^'); hold on;
 % plot(Xgrid(:),Ygrid(:),'.');
@@ -117,11 +109,11 @@ d0 = cell2mat(cellfun(@(rf) rf.itr(idxT), itrCell,'UniformOutput', false));
 % miss_per = (length(find(mask==0))/length(t))/(param.nx*param.ny);
 
 %% 5. DRR-OTG reconstruction
-% call drr3drecon_otg
-[d1_otg, d1] = drr3drecon_otg(...
-    d0, rx, ry, ...
-    param.nx, param.ny, ...
-    param.ox, param.oy, param.mx, param.my, ...
+% call drr2drecon_otg for 2D processing
+[d1_otg, d1] = drr2drecon_otg(...
+    d0, rx, ...
+    param.nx, ...
+    param.ox, param.mx, ...
     param.flow, param.fhigh, dt, ...
     param.rank, param.K, param.niter, param.eps, ...
     param.verb, param.mode);

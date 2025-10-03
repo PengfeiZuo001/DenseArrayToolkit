@@ -123,7 +123,9 @@ fkParam.plotFK = 1;
 fkParam.order = 'postdecon';
 fkParam.plotFKspectrum = 0;
 
-RankReductionParam.
+RankReductionParam = config.RankReductionParam;
+RankReductionParam.rank = 5;
+
 % Process each event that meets the quality criteria
 for iEvent = 1:length(eventid)
     evid = eventid{iEvent}; 
@@ -149,17 +151,9 @@ for iEvent = 1:length(eventid)
     % Apply Radon filter
 %     gather = radonTransform2D(gather, gridStruct, RadonParam);
 %     gather = fkFilter(gather, gridStruct, fkParam);
-    gather = fkFilter(gather, gridStruct, RankReductionParam);
+    gather = rankReduction2D(gather, gridStruct, RankReductionParam);
 %     plotCommonEventGather(gather);
-%     plotCommonEventGather(gatherfk);
-
-    % Configure deconvolution parameters for receiver function computation
-%     DeconvParam.radonfilter = true;  % Disable Radon filtering
-%     DeconvParam.verbose = false;       % Suppress detailed processing output
-%     DeconvParam.gauss = 2.5;
-    % Compute receiver functions through deconvolution
-    % This isolates converted phases from the P-wave coda
-%     gather = deconv(gather, DeconvParam);
+%     plotCommonEventGather(gatherRank);
     
     % Perform Common Conversion Point stacking
     % This maps receiver function amplitudes to subsurface points
