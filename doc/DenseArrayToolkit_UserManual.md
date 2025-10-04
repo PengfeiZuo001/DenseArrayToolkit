@@ -41,8 +41,8 @@
 - [5. Examples](#5-examples)
   - [5.1 demo\_rankReduction.m —— 阵列接收函数阻尼秩约简处理](#51-demo_rankreductionm--阵列接收函数阻尼秩约简处理)
   - [5.2 demo\_Stacking.m —— 接收函数叠加与可视化](#52-demo_stackingm--接收函数叠加与可视化)
-  - [5.3 demo\_Migration\_2D.m —— 二维地震成像与对比](#53-demo_migration_2dm--二维地震成像与对比)
-  - [5.4 demo\_Migration\_3D.m —— 三维地震成像与秩约简](#54-demo_migration_3dm--三维地震成像与秩约简)
+  - [5.3 demo\_Migration\_2D.m —— 二维地震处理与成像](#53-demo_migration_2dm--二维地震处理与成像)
+  - [5.4 demo\_Migration\_3D.m —— 三维地震处理与成像](#54-demo_migration_3dm--三维地震处理与成像)
 - [6. Troubleshooting](#6-troubleshooting)
 - [7. Appendices](#7-appendices)
   - [7.1 Data Structure Reference](#71-data-structure-reference)
@@ -202,109 +202,219 @@ array_processing 模块是 DenseArrayToolkit 的核心处理模块，专门针�
 **模块特点：**
 - **多维处理能力**：支持 2D 和 3D 数据处理，适应不同维度的台阵布局
 - **噪声压制**：专门针对地震数据中的相干噪声和随机噪声设计
-- **信号增强**：通过先进的数学变换增强微弱的地下结构信号
+- **信号增强**：通过数学变换增强微弱的地下结构信号
 - **适应性**：适用于规则和不规则台阵分布的数据处理
 
 **应用场景：**
-- 压制面波和散射噪声
+- 压制随机噪声和散射噪声
 - 分离不同传播路径的地震波
 - 改善接收函数数据的空间连续性
 - 提高后续成像处理的质量
 
 #### 4.4.1 `radonTransform2D()`
 
-该函数对接收函数进行2D Radon 变换，利用 Radon 参数进行噪声去除或信号分离。
+该函数对接收函数进行二维 Radon 变换，利用慢度域（slowness domain）分离噪声与有效信号，适用于规则或近似规则线性台阵数据的噪声抑制与信号增强。
 
 - **用法**：
   ```matlab
-  DataStruct = radonTransform2D(DataStruct, RadonParam)
+  DataStruct = radonTransform2D(DataStruct, gridStruct, param)
   ```
 
-- **输入**：
-  - `DataStruct`：结构数组，包含处理后的波形数据及相关信息。
-  - `RadonParam`：Radon 变换参数的结构体，包含默认字段如 `lows`、`highs`、`pmax`、`pmin` 等。
+- **输入参数说明**：
+  - `DataStruct`：结构数组，包含事件、波形、行程等信息，需含 `.EventInfo.evid`, `.Waveforms.dataProcessed`, `.TravelInfo.distDeg` 等字段。
+  - `gridStruct`：台阵投影网格结构体，用于空间投影。
+  - `param`：结构体，主要参数如下：
+
+    | 参数名         | 默认值      | 说明                         |
+    | -------------- | ----------- | ---------------------------- |
+    | lows           | 0.1         | 带通滤波低频 (Hz)            |
+    | highs          | 1.2         | 带通滤波高频 (Hz)            |
+    | pmax/pmin      | 0.05/-0.05  | 最大/最小慢度 (s/km)         |
+    | minTraces      | 60          | 最小道数                     |
+    | N1/N2          | 30/1        | 共轭梯度迭代次数/稀疏权重    |
+    | plotRadon      | false       | 是否绘制 Radon 结果          |
+    | order          | postdecon   | 滤波顺序（反褶积前/后）      |
 
 - **输出**：
-  - `DataStruct`：更新后的结构数组，包含 Radon 变换后的波形数据。
+  - `DataStruct`：每个事件的 `.Waveforms.dataRadonFiltered` 字段填充为 Radon 处理后的三分量波形。
+
+- **算法简要说明**：
+  1. 对每个事件，按投影距离对台站排序，提取并带通滤波三分量波形。
+  2. 通过共轭梯度法（CG）在慢度域进行 Radon 变换与反变换，分离噪声与有效信号。
+  3. 支持反褶积前/后处理（order），反褶积前对原始数据垂直和径向分量地震记录进行滤波，反褶积后则直接对接收函数进行滤波，可选绘图。
+  4. 适用于台阵分布较规则、噪声具有一定空间相干性的场景。
+
+- **适用条件**：
+  - 适合规则或近似规则线性台阵
+  - 事件道数较多（>minTraces）
+  - 主要用于随机噪声、散射噪声抑制及信号增强
 
 #### 4.4.2 `radonTransform3D()`
 
-该函数对接收函数进行3D Radon 变换，适用于三维台阵数据的处理。
+该函数对接收函数进行三维 Radon 变换，利用二维慢度域（px, py）分离噪声与有效信号，适用于面状密集台阵的噪声抑制与信号增强。
 
 - **用法**：
   ```matlab
-  DataStruct = radonTransform3D(DataStruct, RadonParam)
+  DataStruct = radonTransform3D(DataStruct, gridStruct, param)
   ```
 
-- **输入**：
-  - `DataStruct`：结构数组，包含处理后的波形数据及相关信息。
-  - `RadonParam`：Radon 变换参数的结构体，包含默认字段如 `lows`、`highs`、`pmax`、`pmin` 等。
+- **输入参数说明**：
+  - `DataStruct`：结构数组，包含事件、波形、行程等信息，需含 `.EventInfo.evid`, `.Waveforms.dataProcessed`, `.TravelInfo.distDeg` 等字段。
+  - `gridStruct`：台阵投影网格结构体，用于空间投影。
+  - `param`：结构体，主要参数如下：
+
+    | 参数名         | 默认值      | 说明                         |
+    | -------------- | ----------- | ---------------------------- |
+    | lows           | 0.1         | 带通滤波低频 (Hz)            |
+    | highs          | 1.2         | 带通滤波高频 (Hz)            |
+    | pxmax/pxmin    | 0.05/-0.05  | x方向最大/最小慢度 (s/km)    |
+    | pymax/pymin    | 0.05/-0.05  | y方向最大/最小慢度 (s/km)    |
+    | minTraces      | 60          | 最小道数                     |
+    | N1/N2          | 30/1        | 共轭梯度迭代次数/稀疏权重    |
+    | plotRadon      | false       | 是否绘制 Radon 结果          |
+    | order          | postdecon   | 滤波顺序（反褶积前/后）      |
+    | type           | 1           | Radon类型(1=线性,2=抛物线,3=双曲线) |
 
 - **输出**：
-  - `DataStruct`：更新后的结构数组，包含 Radon 变换后的波形数据。
+  - `DataStruct`：每个事件的 `.Waveforms.dataRadonFiltered` 字段填充为 Radon 处理后的三分量波形。
+
+- **算法简要说明**：
+  1. 对每个事件，按投影x/y坐标对台站排序，提取并带通滤波三分量波形。
+  2. 在二维慢度域(px, py)上通过共轭梯度法（CG）进行Radon变换与反演，分离噪声与有效信号。
+  3. 支持线性、抛物线、双曲线等多种Radon类型（type），可选绘图。
+  4. 适用于面状密集台阵、空间分布较均匀、噪声具有空间相干性的场景。
+
+- **适用条件**：
+  - 适合面状密集台阵（二维分布）
+  - 事件道数较多（>minTraces）
+  - 主要用于随机噪声、散射噪声抑制及信号增强
 
 #### 4.4.3 `rankReduction2D()`
 
-该函数对接收函数进行2D秩降噪处理，通过降低数据秩来实现噪声压制和信号增强。
+该函数对接收函数进行二维阻尼降秩（Damped Rank Reduction, DRR-OTG）处理，通过矩阵降秩实现噪声抑制和信号空间重建，适用于规则或近似规则线性台阵。
 
 - **用法**：
   ```matlab
-  [gather, d1_otg] = rankReduction2D(gather, gridStruct, RankReductionParam)
+  [gather, reconGrid] = rankReduction2D(gather, gridStruct, param)
   ```
 
-- **输入**：
-  - `gather`：结构数组，包含接收函数数据及相关信息。
-  - `gridStruct`：网格结构体，便于后续的降秩重建。
-  - `RankReductionParam`：降秩重建参数的结构体，包含默认字段如 `nx`、`ny`、`rank`、`K` 等。
+- **输入参数说明**：
+  - `gather`：结构数组，包含台站、接收函数等信息，需含 `.StationInfo.stlo`, `.StationInfo.stla`, `.RF.itr`, `.RF.ittime` 等字段。
+  - `gridStruct`：台阵投影网格结构体，用于空间投影。
+  - `param`：结构体，主要参数如下：
+
+    | 参数名         | 默认值      | 说明                         |
+    | -------------- | ----------- | ---------------------------- |
+    | nx/ny          | 必填        | 网格点数（x/y方向）          |
+    | rank           | 10          | DRR矩阵秩                    |
+    | K              | 5           | DRR阻尼参数                  |
+    | niter          | 20          | 最大迭代次数                 |
+    | eps            | 1e-3        | 正则化/收敛阈值              |
+    | verb           | true        | 是否输出详细信息             |
+    | mode           | 1           | 算法模式                     |
+    | flow/fhigh     | 0.1/1.2     | 频率范围 (Hz)                |
+    | tmax           | 30          | 最大时间窗 (s)               |
+    | plotRankReduction | false    | 是否绘制降秩结果             |
 
 - **输出**：
-  - `gather`：更新后的结构数组，包含降秩后的波形数据。
-  - `d1_otg`：重建后的二维数据体。
+  - `gather`：更新后的结构数组，`.RF.itr`字段为降秩重建后的接收函数。
+  - `reconGrid`：重建后的二维空间网格（x）。
+
+- **算法简要说明**：
+  1. 将所有台站的接收函数投影到x轴，构建时间-x的二维数据体。
+  2. 采用DRR-OTG方法对数据体进行矩阵降秩重建，抑制噪声、填补缺失。
+  3. 支持不规则台阵的空间插值与重建，参数可调节降秩强度与收敛速度。
+  4. 适用于线性或近线性台阵、空间连续性要求高的场景。
+
+- **适用条件**：
+  - 适合规则或近似规则线性台阵
+  - 台站空间分布较均匀
+  - 主要用于噪声抑制、缺失数据插值、信号增强
 
 #### 4.4.4 `rankReduction3D()`
 
-该函数对接收函数进行3D秩降噪处理，适用于三维台阵数据的秩降噪处理。
+该函数对接收函数进行三维阻尼秩约简（Damped Rank Reduction, DRR-OTG）处理，通过三维张量降秩实现噪声抑制和空间重建，适用于面状密集台阵。
 
 - **用法**：
   ```matlab
-  [gather, d1_otg] = rankReduction3D(gather, gridStruct, RankReductionParam)
+  [gather, reconGrid] = rankReduction3D(gather, gridStruct, param)
   ```
 
-- **输入**：
-  - `gather`：结构数组，包含接收函数数据及相关信息。
-  - `gridStruct`：网格结构体，便于后续的降秩重建。
-  - `RankReductionParam`：降秩重建参数的结构体，包含默认字段如 `nx`、`ny`、`rank`、`K` 等。
+- **输入参数说明**：
+  - `gather`：结构数组，包含台站、接收函数等信息，需含 `.StationInfo.stlo`, `.StationInfo.stla`, `.RF.itr`, `.RF.ittime` 等字段。
+  - `gridStruct`：台阵投影网格结构体，用于空间投影。
+  - `param`：结构体，主要参数如下：
+
+    | 参数名         | 默认值      | 说明                         |
+    | -------------- | ----------- | ---------------------------- |
+    | nx/ny          | 必填        | 网格点数（x/y方向）          |
+    | rank           | 10          | DRR张量秩                    |
+    | K              | 5           | DRR阻尼参数                  |
+    | niter          | 20          | 最大迭代次数                 |
+    | eps            | 1e-3        | 正则化/收敛阈值              |
+    | verb           | true        | 是否输出详细信息             |
+    | mode           | 1           | 算法模式                     |
+    | flow/fhigh     | 0.1/1.2     | 频率范围 (Hz)                |
+    | tmax           | 30          | 最大时间窗 (s)               |
+    | plotRankReduction | false    | 是否绘制降秩结果             |
 
 - **输出**：
-  - `gather`：更新后的结构数组，包含降秩后的波形数据。
-  - `d1_otg`：重建后的三维数据体。
+  - `gather`：更新后的结构数组，`.RF.itr`字段为降秩重建后的接收函数。
+  - `reconGrid`：重建后的三维空间网格（x, y）。
+
+- **算法简要说明**：
+  1. 将所有台站的接收函数投影到x/y平面，构建时间-x-y的三维数据体。
+  2. 采用DRR-OTG方法对三维数据体进行张量降秩重建，抑制噪声、填补空间缺失。
+  3. 支持不规则台阵的空间插值与重建，参数可调节降秩强度与收敛速度。
+  4. 适用于面状密集台阵、空间连续性要求高的场景。
+
+- **适用条件**：
+  - 适合面状密集台阵（二维分布）
+  - 台站空间分布较均匀
+  - 主要用于噪声抑制、缺失数据插值、信号增强
 
 #### 4.4.5 `fkFilter()`
 
-该函数对接收函数进行频率-波数（f-k）滤波，用于压制特定方向的相干噪声。
+该函数对接收函数进行频率-波数（f-k）锥形滤波，抑制空间一致性强的面波、散射噪声等，适用于规则或近似规则台阵。
 
 - **用法**：
   ```matlab
-  DataStruct = fkFilter(DataStruct, FKParam)
+  DataStruct = fkFilter(DataStruct, gridStruct, param)
   ```
 
-- **输入**：
-  - `DataStruct`：结构数组，包含处理后的波形数据及相关信息。
-  - `FKParam`：f-k 滤波参数的结构体，包含默认字段如 `freq_range`、`k_range`、`filter_type` 等。
+- **输入参数说明**：
+  - `DataStruct`：结构数组，包含事件、波形、行程等信息，需含 `.EventInfo.evid`, `.Waveforms.dataProcessed`, `.TravelInfo.distDeg` 等字段。
+  - `gridStruct`：台阵投影网格结构体，用于空间投影。
+  - `param`：结构体，主要参数如下：
+
+    | 参数名         | 默认值      | 说明                         |
+    | -------------- | ----------- | ---------------------------- |
+    | lows           | 0.1         | 带通滤波低频 (Hz)            |
+    | highs          | 1.2         | 带通滤波高频 (Hz)            |
+    | minTraces      | 60          | 最小道数                     |
+    | w              | 0.1         | 锥形滤波半宽度（百分比）     |
+    | plotFK         | false       | 是否绘制f-k滤波结果          |
+    | plotFKspectrum | false       | 是否绘制f-k谱                |
+    | order          | postdecon   | 滤波顺序（反褶积前/后）      |
 
 - **输出**：
-  - `DataStruct`：更新后的结构数组，包含 f-k 滤波后的波形数据。
+  - `DataStruct`：每个事件的 `.Waveforms.dataFKFiltered` 字段填充为f-k滤波后的三分量波形。
+
+- **算法简要说明**：
+  1. 对每个事件，按投影距离对台站排序，提取并带通滤波三分量波形。
+  2. 对不规则台阵插值到规则网格，进行二维f-k变换，应用锥形滤波器抑制特定波数范围的噪声。
+  3. 滤波后插值回原始台站位置，恢复物理空间波形。
+  4. 支持反褶积前/后处理（order），可选绘图和谱分析。
+  5. 适用于随机噪声、散射噪声空间一致性强的场景。
+
+- **适用条件**：
+  - 适合规则或近似规则线性台阵
+  - 事件道数较多（>minTraces）
+  - 主要用于随机噪声、空间一致性噪声抑制、信号增强
 
 ### 4.5 Imaging Module
 
-imaging 模块是 DenseArrayToolkit 的核心成像模块，实现了多种先进的地震成像算法，用于将接收函数数据转换为地下结构的图像。该模块结合了传统的 CCP 叠加方法和现代的最小二乘偏移技术，能够提供高分辨率的地下结构图像。
-
-**模块特点：**
-- **多尺度成像**：支持从地壳尺度到上地幔尺度的成像
-- **先进算法**：集成了最小二乘偏移等现代成像技术
-- **三维能力**：支持 2D 和 3D 成像，适应不同研究需求
-- **射线追踪**：精确的射线追踪算法确保成像精度
-- **地壳参数估计**：HK 叠加方法提供地壳厚度和 Vp/Vs 比值
+imaging 模块是 DenseArrayToolkit 的核心成像模块，实现了多种先进的地震成像算法，用于将接收函数数据转换为地下结构的图像。该模块结合了传统的 CCP 叠加方法和最新的最小二乘偏移技术，能够提供高分辨率的地下结构图像。
 
 **应用场景：**
 - 地壳和上地幔结构的精细成像
@@ -315,70 +425,152 @@ imaging 模块是 DenseArrayToolkit 的核心成像模块，实现了多种先�
 
 #### 4.5.1 `CCPCommonEventGather()`
 
-该函数用于创建共事件道集，为后续的 CCP 叠加提供基础数据。
+该函数实现共转换点叠加（Common Conversion Point stacking, CCP），通过射线追踪和时深转换，将接收函数能量投影到地下空间网格，实现2D或3D地壳结构成像。
 
 - **用法**：
   ```matlab
-  eventGather = CCPCommonEventGather(DataStruct, velocityModel, CCPParam)
+  ccpResult = CCPCommonEventGather(gather, gridStruct, param)
   ```
 
-- **输入**：
-  - `DataStruct`：结构数组，包含接收函数数据及相关信息。
-  - `velocityModel`：速度模型，用于射线追踪和时间到深度转换。
-  - `CCPParam`：CCP参数的结构体，包含经纬度范围、网格参数等。
+- **输入参数说明**：
+  - `gather`：结构数组，包含单事件或道集的接收函数数据，需含 `.RF.itr`, `.RF.ittime`, `.TravelInfo.rayParam`, `.TravelInfo.baz`, `.StationInfo.stla`, `.StationInfo.stlo` 等字段。
+  - `gridStruct`：成像网格结构体，包含速度模型（1D/2D/3D）、水平/深度轴、空间分辨率等信息。
+  - `param`：结构体，主要参数如下：
+
+    | 参数名         | 默认值      | 说明                         |
+    | -------------- | ----------- | ---------------------------- |
+    | imagingType    | '2D'        | 成像类型（'2D'或'3D'）       |
+    | plotCCP        | false       | 是否绘制CCP成像结果          |
+    | smoothLength   | 0           | CCP图像平滑核长度            |
 
 - **输出**：
-  - `eventGather`：包含共事件道集数据的结果结构体。
+  - `ccpResult`：结构体，包含成像网格（X/Z或X/Y/Z）、CCP叠加图像`img`、每格样本数`count`等。
+
+- **算法简要说明**：
+  1. 提取每道接收函数的射线参数、方位角、台站坐标等信息。
+  2. 根据速度模型和射线参数，进行射线追踪，计算每道接收函数在地下的转换点轨迹。
+  3. 若为2D成像，将所有转换点投影到剖面，按空间网格归并并累加RF振幅，归一化获得CCP图像。
+  4. 若为3D成像，将转换点投影到三维网格，进行空间归并与累加。
+  5. 支持3D速度模型下的时深校正与空间插值，提升成像精度。
+  6. 可选平滑处理与可视化，输出空间分布的CCP能量图像。
+
+- **适用条件**：
+  - 适合二维剖面或三维台阵区域
+  - 速度模型已知（支持1D/2D/3D）
+  - 主要用于地壳界面、莫霍面等转换点成像
 
 #### 4.5.2 `leastSquaresMig2D()`
 
-该函数对接收函数进行2D最小二乘偏移，利用速度模型和最小二乘偏移参数进行偏移成像。
+该函数对接收函数进行二维最小二乘偏移（Least-squares Migration），通过最小化观测数据与正演模拟数据的残差，获得高分辨率地下结构成像，适用于二维台阵剖面。
 
 - **用法**：
   ```matlab
-  MigResult = leastSquaresMig2D(gather, gridStruct, MigrationParam)
+  MigResult = leastSquaresMig2D(gather, gridStruct, param)
   ```
 
-- **输入**：
-  - `gather`：结构数组，包含地震记录及相关信息。
-  - `gridStruct`：网格结构体，包含网格相关信息。
-  - `MigrationParam`：偏移参数的结构体，包含默认字段如 `dz`、`zmax`、`itermax`、`mu` 等。
+- **输入参数说明**：
+  - `gather`：结构数组，包含台站、接收函数等信息，需含 `.StationInfo.stlo`, `.StationInfo.stla`, `.RF.itr`, `.RF.ittime` 等字段。
+  - `gridStruct`：二维成像网格结构体，包含水平和深度轴信息。
+  - `param`：结构体，主要参数如下：
+
+    | 参数名         | 默认值      | 说明                         |
+    | -------------- | ----------- | ---------------------------- |
+    | dz             | 1           | 成像深度步长 (km)            |
+    | zmax           | 100         | 最大成像深度 (km)            |
+    | itermax        | 20          | 最大迭代次数                 |
+    | mu             | 0.1         | 正则化参数                   |
+    | flow/fhigh     | 0.1/1.2     | 频率范围 (Hz)                |
+    | gauss          | 2.5         | 高斯平滑参数                 |
+    | plotMig        | false       | 是否绘制成像结果             |
 
 - **输出**：
-  - `MigResult`：包含偏移成像结果的结构体，包括水平和深度轴、偏移图像和最小二乘偏移结果。
+  - `MigResult`：结构体，包含水平和深度轴、偏移图像、最小二乘偏移结果等。
+
+- **算法简要说明**：
+  1. 构建二维成像网格，利用速度模型进行射线追踪，建立观测与模型的映射关系。
+  2. 采用最小二乘反演，迭代优化地下结构模型，使正演模拟数据与观测接收函数残差最小。
+  3. 支持正则化与高斯平滑，提升成像分辨率与稳定性。
+  4. 适用于二维台阵剖面、地壳厚度和界面成像等场景。
+
+- **适用条件**：
+  - 适合二维台阵剖面
+  - 速度模型已知或可估算
+  - 主要用于高分辨率地壳/上地幔结构成像
 
 #### 4.5.3 `leastSquaresMig3D()`
 
-该函数对接收函数进行3D最小二乘偏移，适用于三维台阵数据的偏移成像。
+该函数对接收函数进行三维最小二乘偏移（Least-squares Migration），通过最小化观测数据与三维正演模拟数据的残差，获得高分辨率三维地下结构成像，适用于面状密集台阵。
 
 - **用法**：
   ```matlab
-  MigResult = leastSquaresMig3D(gather, gridStruct, MigrationParam)
+  MigResult = leastSquaresMig3D(gather, gridStruct, param)
   ```
 
-- **输入**：
-  - `gather`：结构数组，包含地震记录及相关信息。
-  - `gridStruct`：网格结构体，包含网格相关信息。
-  - `MigrationParam`：偏移参数的结构体，包含默认字段如 `dz`、`zmax`、`itermax`、`mu` 等。
+- **输入参数说明**：
+  - `gather`：结构数组，包含台站、接收函数等信息，需含 `.StationInfo.stlo`, `.StationInfo.stla`, `.RF.itr`, `.RF.ittime` 等字段。
+  - `gridStruct`：三维成像网格结构体，包含水平（x, y）和深度轴信息。
+  - `param`：结构体，主要参数如下：
+
+    | 参数名         | 默认值      | 说明                         |
+    | -------------- | ----------- | ---------------------------- |
+    | dz             | 1           | 成像深度步长 (km)            |
+    | zmax           | 100         | 最大成像深度 (km)            |
+    | itermax        | 20          | 最大迭代次数                 |
+    | mu             | 0.1         | 正则化参数                   |
+    | flow/fhigh     | 0.1/1.2     | 频率范围 (Hz)                |
+    | gauss          | 2.5         | 高斯平滑参数                 |
+    | plotMig        | false       | 是否绘制成像结果             |
 
 - **输出**：
-  - `MigResult`：包含偏移成像结果的结构体，包括水平和深度轴、偏移图像和最小二乘偏移结果。
+  - `MigResult`：结构体，包含水平（x, y）和深度轴、三维偏移图像、最小二乘偏移结果等。
+
+- **算法简要说明**：
+  1. 构建三维成像网格，利用速度模型进行三维射线追踪，建立观测与模型的映射关系。
+  2. 采用三维最小二乘反演，迭代优化地下结构模型，使正演模拟数据与观测接收函数残差最小。
+  3. 支持正则化与高斯平滑，提升三维成像分辨率与稳定性。
+  4. 适用于面状密集台阵、地壳厚度和界面三维成像等场景。
+
+- **适用条件**：
+  - 适合面状密集台阵（三维分布）
+  - 速度模型已知或可估算
+  - 主要用于高分辨率地壳/上地幔三维结构成像
 
 #### 4.5.4 `HKstacking()`
 
-该函数利用接收函数进行HK叠加，计算台站下方地壳厚度和Vp/Vs比值。
+该函数利用接收函数进行HK叠加（H-K stacking），通过分析Ps及其多次波的到时，反演台站下方地壳厚度（H）和Vp/Vs比值（K），适用于单台站或台阵的地壳参数估算。
 
 - **用法**：
   ```matlab
-  HKresults = HKstacking(DataStruct, HKParam)
+  HKresults = HKstacking(DataStruct, param)
   ```
 
-- **输入**：
-  - `DataStruct`：结构数组，包含台站和事件数据。
-  - `HKParam`：HK叠加参数的结构体，包含地壳厚度和Vp/Vs比值的搜索范围等。
+- **输入参数说明**：
+  - `DataStruct`：结构数组，包含台站、事件、接收函数等信息，需含 `.StationInfo.stla`, `.StationInfo.stlo`, `.RF.itr`, `.RF.ittime` 等字段。
+  - `param`：结构体，主要参数如下：
+
+    | 参数名         | 默认值      | 说明                         |
+    | -------------- | ----------- | ---------------------------- |
+    | Hrange         | [20 60]     | 地壳厚度搜索范围 (km)        |
+    | Krange         | [1.6 2.0]   | Vp/Vs比值搜索范围            |
+    | dH             | 0.1         | H步长 (km)                   |
+    | dK             | 0.01        | K步长                        |
+    | Vp             | 6.3         | 地壳P波速度 (km/s)           |
+    | weight         | [0.7 0.2 0.1]| Ps, PpPs, PsPs+PpSs权重      |
+    | plotHK         | false       | 是否绘制HK叠加曲面           |
 
 - **输出**：
-  - `HKresults`：包含HK叠加结果的结构体，包括台站下方地壳厚度、Vp/Vs比值及其误差估计。
+  - `HKresults`：结构体，包含每个台站的最优地壳厚度H、Vp/Vs比值K、误差估计、HK叠加曲面等。
+
+- **算法简要说明**：
+  1. 对每个台站，遍历H-K参数网格，计算理论Ps、PpPs、PsPs+PpSs到时。
+  2. 在接收函数上提取对应振幅，按权重累加，获得HK叠加能量曲面。
+  3. 取能量最大点为最优H、K，支持误差估计与可视化。
+  4. 适用于单台站或台阵地壳厚度、Vp/Vs比值反演。
+
+- **适用条件**：
+  - 适合单台站或台阵
+  - 事件方位和距离分布较均匀
+  - 主要用于地壳厚度、Vp/Vs比值估算
 
 ### 4.6 Visualization Module
 
@@ -552,7 +744,7 @@ demo_Stacking
 
 ---
 
-### 5.3 demo_Migration_2D.m —— 二维地震成像与对比
+### 5.3 demo_Migration_2D.m —— 二维地震处理与成像
 
 **功能简介：**
 演示二维台阵地震成像的完整流程，包括 CCP 叠加与最小二乘偏移（Least-squares Migration）两种方法的对比。适用于二维剖面区域的高分辨率成像。
@@ -583,10 +775,10 @@ demo_Migration_2D
 
 ---
 
-### 5.4 demo_Migration_3D.m —— 三维地震成像与秩约简
+### 5.4 demo_Migration_3D.m —— 三维地震处理与成像
 
 **功能简介：**
-演示三维台阵地震成像流程，结合三维最小二乘偏移和三维秩约简预处理，适用于大规模密集台阵的体积成像。
+演示三维台阵地震成像流程，结合三维最小二乘偏移和三维降秩预处理，适用于大规模面状密集台阵成像。
 
 **主要流程：**
 1. 路径与参数设置：setupPaths()、loadConfig()
@@ -810,12 +1002,12 @@ DataStruct(i) 常见字段：
   <tr style="text-align: center; vertical-align: middle;">
     <td>`gauss`</td>
     <td>2.5</td>
-    <td>迁移 Gauss 参数</td>
+    <td>震源函数 Gauss 参数（与接收函数计算一致）</td>
   </tr>
   <tr style="text-align: center; vertical-align: middle;">
     <td>`phaseshift`</td>
     <td>5</td>
-    <td>迁移相位参数</td>
+    <td>相位时移参数（与接收函数计算一致）</td>
   </tr>
   <tr style="text-align: center; vertical-align: middle;">
     <td rowspan="3"><strong>CCPParam</strong></td>
@@ -883,9 +1075,9 @@ v1.2 (2025-03-01):
 
 ## 9. Authors
 
-- Author 1: Name, Affiliation, Email
-- Author 2: Name, Affiliation, Email
-- Author 3: Name, Affiliation, Email
+- Yunfeng Chen, Zhejiang University, yunfeng_chen@zju.edu.cn
+- Pengfei Zuo, Zhejiang University, pengfei.zuo@zju.edu.cn
+- Yangkang Chen, The University of Texas at Austin, yangkang.chen@beg.utexas.edu
 
 © 2025 DenseArrayToolkit Authors. 如果您在使用中遇到问题或有功能改进需求，欢迎与我们联系或在 GitHub Issues 中提交反馈。
 
@@ -930,5 +1122,4 @@ v1.2 (2025-03-01):
 
 ## 15. References
 
-- [DenseArrayToolkit](https://github.com/DenseArrayToolkit)
-- [DenseArrayToolkit](https://github.com/DenseArrayToolkit)
+- [DenseArrayToolkit](https://github.com/PengfeiZuo001/DenseArrayToolkit)
