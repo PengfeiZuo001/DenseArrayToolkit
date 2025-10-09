@@ -1,0 +1,4 @@
+Sta     Nrfs    Lat     Lon     Ele     H       Hstd    k       kstd    Hb_mean Hb_std  kb_mean kb_std 
+ATF078  7       39.20   95.61   -12345.00 56.50   8.33    1.73    0.12    54.75   5.11    1.84    0.10   
+Sta     Nrfs    Lat     Lon     Ele     H       Hstd    k       kstd    Hb_mean Hb_std  kb_mean kb_std 
+ATF078  7       39.20   95.61   -12345.00 63.80   8.00    1.68    0.11    62.80   3.98    1.76    0.12   
