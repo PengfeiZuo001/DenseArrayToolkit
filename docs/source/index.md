@@ -1,13 +1,55 @@
-# DenseArrayToolkit 文档
+# Dense Array Toolkit
 
-欢迎来到 DenseArrayToolkit 的文档网站！
+## Overview
+Dense array toolkit (DAT) is an open-source, MATLAB-based softerware package designed for dense seismic array. 
 
-## 内容目录
+this is a test.
+
+this is a test.
+
 
 ```{toctree}
 :maxdepth: 2
-:caption: 文档目录:
+:caption: Introduction:
 
-installation
-introduction
-usage
+Introduction
+Why_DAT
+Getting_started
+
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: Installation:
+
+Installation
+Structure
+
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: Examples:
+
+Example1
+Example2
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: Modules:
+
+RF
+ArrayProcessing
+Imaging
+
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: Development:
+
+Next
+Changelog
+
+```
