@@ -1,3 +1,12 @@
 *.asv
 /matfiles/CCPData
 *.SAC
+
+# Sphinx 构建目录
+docs/build/
+docs/source/_static/
+docs/source/_templates/
+
+# Python 缓存
+__pycache__/
+*.pyc
