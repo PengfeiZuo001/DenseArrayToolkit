@@ -1,11 +1,15 @@
 # Change log
 
+- version 1
 
-* version 1
 xxxxxx
-* version 2
+
+- version 2
+
 xxxx
-* version 3
+
+- version 3
+
 xxxx
 
 
@@ -16,11 +20,14 @@ How to get started with DenseArrayToolkit-GUI.
 
 Advanced Features
 
-* sub1
+- sub1
+
 Detailed explanation of advanced functionality.
 
-* sub2
+- sub2
+
 Detailed explanation of advanced functionality.
 
-* sub3
+- sub3
+
 Detailed explanation of advanced functionality.

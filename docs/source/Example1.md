@@ -1,6 +1,7 @@
 # Linear array
 
 ## data
+
 This is an example.
 
 ## results

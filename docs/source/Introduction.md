@@ -2,18 +2,26 @@
 
 DenseArrayToolkit is a graphical user interface for dense array data processing.
 
-* Overview
+## Overview
 
-this is a test.
-
-this is a test.
-
+This is a test.
 
 This toolkit provides a user-friendly interface for working with dense array data.
 
-Features
+## Features
 
-this is a test.
-** Feature 1 description
-** Feature 2 description  
-** Feature 3 description
+- **Feature 1**: 
+
+Description of feature 1
+
+- **Feature 2**: 
+
+Description of feature 2  
+
+- **Feature 3**: 
+
+Description of feature 3
+
+## Getting Started
+
+This is a test package for dense array processing with a graphical user interface.

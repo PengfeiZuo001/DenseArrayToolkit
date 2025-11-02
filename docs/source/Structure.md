@@ -2,9 +2,9 @@
 
 Introduce directory
 
-* sub1
-* sub2
-* sub3
+- sub1
+- sub2
+- sub3
 
 Basic Usage
 

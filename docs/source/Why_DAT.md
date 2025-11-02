@@ -2,12 +2,23 @@
 
 Basic Usage
 
+How to get started with DenseArrayToolkit.
 
-How to get started with DenseArrayToolkit-GUI.
+**point 1**
+- sub 1
 
-* point 1
-* point 2
-* point 3
+- sub 2
+
+**point 2**
+- sub 1
+
+- sub 2
+
+**point 3**
+
+- sub 1
+
+- sub 2
 
 Advanced Features
 

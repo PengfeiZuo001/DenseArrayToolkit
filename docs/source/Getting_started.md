@@ -14,6 +14,5 @@ This toolkit provides a user-friendly interface for working with dense array dat
 
 Features
 
-* Feature 1 description
-* Feature 2 description  
-* Feature 3 description
+- **Feature 1**: Description
+- **Feature 2**: Description
