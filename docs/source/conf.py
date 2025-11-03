@@ -4,7 +4,7 @@ import sys
 sys.path.insert(0, os.path.abspath('../..'))
 
 project = 'DenseArrayToolkit'
-copyright = '2025, DAT v1.0.0'
+copyright = '2025, DAT v0.0.1'
 author = 'Seismology Group'
 
 
