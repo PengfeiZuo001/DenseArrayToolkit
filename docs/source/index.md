@@ -24,6 +24,8 @@ Stores parameters for data preprocessing, such as filtering, normalization, and 
 
 
 ## Features
+![Flowchart](../images/flowchart.png)
+
 - **Data Processing**: 
 Tools for preprocessing seismic data
 
