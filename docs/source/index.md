@@ -13,13 +13,13 @@ DAT provides a comprehensive framework that bridges methodologies between explor
 DAT is built around a set of core objects that represent different components of seismic data and processing workflows.
 These objects are designed to simplify data handling and ensure modularity. 
 Below are the key objects in DAT:
-- **Object1**: 
+- **DataStruct**: 
 Represents raw or processed seismic data, including waveforms, metadata, and station information.
 
-- **Object2**: 
+- **GridStruct**: 
 Encodes the spatial configuration of the seismic array, including station coordinates and array layout.
 
-- **Object3**: 
+- **ParamStruct**: 
 Stores parameters for data preprocessing, such as filtering, normalization, and time window selection.
 
 
@@ -30,10 +30,10 @@ Stores parameters for data preprocessing, such as filtering, normalization, and 
 Tools for preprocessing seismic data
 
 - **Array Imaging**: 
-Functions for beamforming, slowness analysis, and migration.
+Functions for common conversion point stacking, migration and least-squares migration imaging.
 
-- **Reflection Profile Analysis**: 
-Modules for receiver function analysis and crustal structure imaging.
+- **Array Processing**: 
+Modules for processing receiver function using array methods such as F-K filter, radon transform and rank-reduction method.
 
 - **Modular Design**: 
 Organized into distinct modules for flexibility and ease of use.
@@ -60,22 +60,66 @@ Follow these steps to quickly get started with the Dense Array Toolkit (DAT):
 2. **Load Example Data**:  
    - DAT includes example datasets to help you get started. Load the example data using:
      ```matlab
-     data = load('example_data.mat');
+     config = loadConfig();
+     DataStruct = read_SAC(config.dataFolder);
      ```
 
 3. **Run a Basic Workflow**:  
    - Preprocess the data:
      ```matlab
-     processed_data = preprocess(data, 'filter', [0.1, 1.0]);
+     DataStruct = preprocessing(DataStruct, PreprocessingParam);
      ```
-   - Perform beamforming:
+   - Perform deconvolution:
      ```matlab
-     result = beamform(processed_data, 'slowness', [0.04, 0.08]);
+     DataStruct = deconv(DataStruct, DeconvParam);
      ```
+   - Create imaging grid:
+     ```matlab
+     dx = 5; dy = 5; dz = 1;
+     gridStruct = createGrid(DataStruct, dx, dy, dz);
+     ```
+   - Extract velocities at grid location:
+     ```matlab
+     gridStruct = getVelocityModel('3D',gridStruct);
+     ```
+
+   - Sorting to get a event list:
+      ```matlab
+      eventList = getEvents(DataStruct);
+      eventid = {eventList.evid};
+     ```
+
+   - Loop over all events for array processing and imaging:
+     ```matlab
+      ccpResults =[];
+      migResults = [];
+      for iEvent = 1:length(eventid)
+        gather = getCommonEventGather(DataStruct, eventid{iEvent});
+        % Array processing
+        gather = radonTransform(gather, gridStruct, RadonParam);
+        % Or
+        % gather = rankReduction(gather, gridStruct, RankReductionParam);
+         
+        % CCP imaging
+        ccpResult = CCPCommonEventGather(gather, gridStruct, CCPParam);
+        ccpResults = [ccpResults; ccpResult];
+      
+        % Migration Imaging
+        migResult = leastSquaresMig3D(gather, gridStruct, MigParam);
+        migResults = [migResults; migResult];
+      end
+      ```
+   - Stacking:
+      ```matlab
+      ccpImage = stackImagingResults(ccpResults)
+      migImage = stackImagingResults(migResults)
+      ```
+   
    - Visualize the results:
-     ```matlab
-     plotBeamformingResult(result);
-     ```
+       ```matlab
+      visualizeImage(ccpImage, gridStruct);
+      visualizeImage(migImage, gridStruct);
+      ```
 
 4. **Explore Documentation**:  
    - Refer to the Getting Started Guide for detailed instructions and additional examples.
