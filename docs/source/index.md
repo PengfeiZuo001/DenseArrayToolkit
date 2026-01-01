@@ -1,135 +1,64 @@
 # Dense Array Toolkit
 
 ## Overview
-Dense array toolkit (DAT) is an open-source, MATLAB-based software package for dense seismic array data processing and imaging. 
-Motivated by the increasing deployment of large-N seismic arrays and the growing demand for advanced data analysis tools, 
-DAT provides a comprehensive framework that bridges methodologies between exploration community and passive-source seismology.
-
-
+Dense array toolkit (DAT) is an open-source, MATLAB-based software package for dense seismic array data processing and imaging. Motivated by the increasing deployment of large-N seismic arrays and the growing demand for advanced data analysis tools, DAT provides a comprehensive framework that integrates receiver function calculation, data processing  techniques (such as radon transform, and rank-reduction methods), and advanced imaging algorithms including common conversion point stacking, migration, and least-squares migration. 
 
 ![DAT overview](../images/overview.png)
 
 ## Objects
-DAT is built around a set of core objects that represent different components of seismic data and processing workflows.
-These objects are designed to simplify data handling and ensure modularity. 
-Below are the key objects in DAT:
-- **DataStruct**: 
-Represents raw or processed seismic data, including waveforms, metadata, and station information.
-
-- **GridStruct**: 
-Encodes the spatial configuration of the seismic array, including station coordinates and array layout.
-
-- **ParamStruct**: 
-Stores parameters for data preprocessing, such as filtering, normalization, and time window selection.
-
+DAT is designed for efficient processing of large volumes of short-period nodal seismic data, with three key modules:
+- rapid receiver function calculation
+- advanced array-based data processing
+- improved subsurface structure imaging
 
 ## Features
-![Flowchart](../images/flowchart.png)
+The software comprises three key struct variables:
+- **DataStruct**: 
+Stores essential seismic data information, including fields such as Waveforms, TimeAxis, StationInfo, EventInfo, Header, RF, TravelInfo, and ProcHistory.
 
-- **Data Processing**: 
-Tools for preprocessing seismic data
+- **GridStruct**: 
+Defines the spatial grid configuration of the array. Station coordinates are projected onto a Cartesian coordinate system aligned with the principal and secondary axes.
+- **ParamStruct**: 
+Contains parameters for data preprocessing, such as filtering, normalization, and time window selection.
 
-- **Array Imaging**: 
-Functions for common conversion point stacking, migration and least-squares migration imaging.
-
-- **Array Processing**: 
-Modules for processing receiver function using array methods such as F-K filter, radon transform and rank-reduction method.
-
-- **Modular Design**: 
-Organized into distinct modules for flexibility and ease of use.
-
-- **Open Source**: 
-Fully customizable and extendable for specific research needs.
-
+![Framework of DAT](../images/flowchart.png)
 
 ## Quickstart
+The software is entirely written in MATLAB, and can be easily installed and used on Windows, Linux, and macOS. MATLAB R2021a or later is recommended.
 
-Follow these steps to quickly get started with the Dense Array Toolkit (DAT):
+The following is a quickstart guide to get you started.
 
-1. **Installation**:  
-   - Ensure MATLAB is installed on your system.  
-   - Clone the DAT repository from GitHub:
+1. **Download the source code**:  
+   - Clone the DAT repository (DAT-public branch) from GitHub:
      ```bash
-     git clone https://github.com/your-repo/DenseArrayToolkit.git
+     git clone -b DAT-public git@github.com:PengfeiZuo001/DenseArrayToolkit.git DenseArrayToolkit-public
      ```
-   - Add the DAT folder to your MATLAB path:
-     ```matlab
-     addpath('/path/to/DenseArrayToolkit');
-     ```
-
-2. **Load Example Data**:  
-   - DAT includes example datasets to help you get started. Load the example data using:
-     ```matlab
-     config = loadConfig();
-     DataStruct = read_SAC(config.dataFolder);
-     ```
-
-3. **Run a Basic Workflow**:  
-   - Preprocess the data:
-     ```matlab
-     DataStruct = preprocessing(DataStruct, PreprocessingParam);
-     ```
-   - Perform deconvolution:
-     ```matlab
-     DataStruct = deconv(DataStruct, DeconvParam);
-     ```
-   - Create imaging grid:
-     ```matlab
-     dx = 5; dy = 5; dz = 1;
-     gridStruct = createGrid(DataStruct, dx, dy, dz);
-     ```
-   - Extract velocities at grid location:
-     ```matlab
-     gridStruct = getVelocityModel('3D',gridStruct);
-     ```
-
-   - Sorting to get a event list:
-      ```matlab
-      eventList = getEvents(DataStruct);
-      eventid = {eventList.evid};
-     ```
-
-   - Loop over all events for array processing and imaging:
-     ```matlab
-      ccpResults =[];
-      migResults = [];
-      for iEvent = 1:length(eventid)
-        gather = getCommonEventGather(DataStruct, eventid{iEvent});
-        % Array processing
-        gather = radonTransform(gather, gridStruct, RadonParam);
-        % Or
-        % gather = rankReduction(gather, gridStruct, RankReductionParam);
-         
-        % CCP imaging
-        ccpResult = CCPCommonEventGather(gather, gridStruct, CCPParam);
-        ccpResults = [ccpResults; ccpResult];
-      
-        % Migration Imaging
-        migResult = leastSquaresMig3D(gather, gridStruct, MigParam);
-        migResults = [migResults; migResult];
-      end
-      ```
-   - Stacking:
-      ```matlab
-      ccpImage = stackImagingResults(ccpResults)
-      migImage = stackImagingResults(migResults)
-      ```
+     Or 
+     download the source code from [here](https://github.com/PengfeiZuo001/DenseArrayToolkit/tree/DAT-public).
    
-   - Visualize the results:
-       ```matlab
-      visualizeImage(ccpImage, gridStruct);
-      visualizeImage(migImage, gridStruct);
-      ```
+   - Run `setupPaths.m` in `DenseArrayToolkit-public/` directory to setup the path:
 
-4. **Explore Documentation**:  
-   - Refer to the Getting Started Guide for detailed instructions and additional examples.
+2. **Run the demo**: 
+   - Change directory to `DenseArrayToolkit-public/demo/` directory.
+
+   - Run `demo_Stacking.m` to perform the stacking demo.
+
+   - Run `demo_rankReduction.m` to perform the rank reduction demo.
+
+   - Run `demo_Migration_2D.m` to perform the 2D LSM demo.
+
+   - Run `demo_Migration_3D.m` to perform the 3D LSM demo.
+
+
+4. **Explore Documentation (Coming soon)**:  
+   - To be updated.
 
 
 ## How to cite 
 
 If you use DAT in your research, please cite it as follows:
 
-> - Chen, Y., Gu, Y. J., Zuo, P., Zhang, Q., Wang, H., & Chen, Y. (2025). Least-squares migration imaging of receiver functions. IEEE Transactions on Geoscience and Remote Sensing.
+> - Chen, Y., Gu, Y. J., Zuo, P., Zhang, Q., Wang, H., & Chen, Y. (2025). Least-squares migration imaging of receiver functions. IEEE Transactions on Geoscience and Remote Sensing. [PDF](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=10928715)
 
 ## Contributing
 We welcome contributions!
@@ -138,7 +67,7 @@ Feel free to contact with us if you have good ideas and suggestions.
 
 ## Related Tools
 
-In addition to the Dense Array Toolkit (DAT), there are several other tools and software packages that may complement your seismic data analysis workflows. 
+In addition to the Dense Array Toolkit (DAT), there are several other tools and software packages that may complement your seismic array data analysis workflows. 
 Below are some commonly used tools:
 
 - [**SeisPy**](https://seispy.xumijian.me/latest/): A graphical interface Python module for receiver function (RF) calculation and post-processing in seismological research.  
