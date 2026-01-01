@@ -1,14 +1,5 @@
 # RF analysis
 
-## RF
-recever function calculation
+## RF deconvolution
+ to be added...
 
-Basic Usage
-
-## RF2
-
-How to get started with DenseArrayToolkit-GUI.
-
-Advanced Features
-
-Detailed explanation of advanced functionality.

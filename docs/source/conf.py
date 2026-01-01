@@ -7,6 +7,8 @@ project = 'DenseArrayToolkit'
 copyright = '2025, DAT v0.0.1'
 author = 'Seismology Group'
 
+html_favicon = '_static/images/favicon.ico'
+html_static_path = ['_static']
 
 extensions = [
     'myst_parser',

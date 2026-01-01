@@ -1,25 +1,12 @@
 # RF imaging
+we provide two methods for RF imaging: 
 
-## Hk stacking
+**CCP stacking**: a conveonventional method that stacks receiver functions based on their theoretical conversion points in the subsurface.
 
-How to get started with DenseArrayToolkit-GUI.
-
-Advanced Features
-
-Detailed explanation of advanced functionality.
+**Least-squares migration**: an iterative optimization method that uses the least-squares strategy to solve the migration problem.
 
 ## CCP stacking
+To be added...
 
-How to get started with DenseArrayToolkit-GUI.
-
-Advanced Features
-
-Detailed explanation of advanced functionality.
-
-## Least square migration
-
-How to get started with DenseArrayToolkit-GUI.
-
-Advanced Features
-
-Detailed explanation of advanced functionality.
+## Least-square migration
+To be added...

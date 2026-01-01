@@ -65,7 +65,7 @@ We welcome contributions!
 
 Feel free to contact with us if you have good ideas and suggestions.
 
-## Related Tools
+## Related tools
 
 In addition to the Dense Array Toolkit (DAT), there are several other tools and software packages that may complement your seismic array data analysis workflows. 
 Below are some commonly used tools:
@@ -83,28 +83,8 @@ Below are some commonly used tools:
 :caption: Introduction:
 
 Introduction
-Why_DAT
 Getting_started
 
-```
-
-```{toctree}
-:maxdepth: 2
-:hidden:
-:caption: Installation:
-
-Installation
-Structure
-
-```
-
-```{toctree}
-:maxdepth: 2
-:hidden:
-:caption: Examples:
-
-Example1
-Example2
 ```
 
 ```{toctree}

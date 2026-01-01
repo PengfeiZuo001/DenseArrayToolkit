@@ -1,33 +1,17 @@
 # Change log
 
-- version 1
+- version 0.0.1 (2025-01)
 
-xxxxxx
+    Starting development of Dense Array Toolkit (DAT).
 
-- version 2
+- version 0.0.2 (2025-08)
 
-xxxx
+    First release v0.0.1.
 
-- version 3
+- version 0.0.3 (2025-12)
 
-xxxx
+    Add more examples and documentation.
 
+- version 0.0.4 (2026-02)
 
-Basic Usage
-basic info
-
-How to get started with DenseArrayToolkit-GUI.
-
-Advanced Features
-
-- sub1
-
-Detailed explanation of advanced functionality.
-
-- sub2
-
-Detailed explanation of advanced functionality.
-
-- sub3
-
-Detailed explanation of advanced functionality.
+     Hopefully, most of the functions are implemented.

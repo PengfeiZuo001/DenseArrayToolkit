@@ -1,13 +1,7 @@
 # Next step
 
-we will do ...
+- Advanced modules to be added...
 
-Basic Usage
+- Detailed explanation of functions to be added...
 
-
-How to get started with DenseArrayToolkit-GUI.
-
-Advanced Features
-
-
-Detailed explanation of advanced functionality.
+- More examples to be added...
