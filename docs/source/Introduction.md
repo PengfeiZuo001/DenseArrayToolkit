@@ -250,7 +250,22 @@ write_MigResult([config.outputFolder, '/migResults.mat'], migResults);
 write_MigResult([config.outputFolder, '/ccpResults.mat'], ccpResults);
 ```
 
-## Future work
-Synthetic data are needed to validate the performance of DAT. 
+## Synthetic experiments of LSM
+### 1. Velocity model
+We generate a 2D benchmark model with complex subsurface structures. The velocity model is obtained from basin-mountain compressional geodynamics modeling.
 
-More examples are coming soon.
+<img src="../images/benchmark_model.png" alt="Velocity model" width="800"/>
+
+
+### 2. Receiver functions
+We use [FDFK](https://github.com/YoushanLiu/FDFK2D/tree/master) ([Liu et al., 2025](https://pubs.geoscienceworld.org/ssa/srl/article-abstract/96/2A/1163/650756/FDFK2D-Efficient-Two-Dimensional-Teleseismic)) method to simulate teleseismic wavefields for the benchmark model. We generate ten teleseismic events in total. 
+
+<img src="../images/snapshots_from_left_fast.gif" alt="Snapshot of teleseismic wavefields" width="800"/>
+
+<img src="../images/RF_stacked.png" alt="Stacked receiver function" width="650"/>
+
+### 3. Migration imaging
+We perform migration imaging for the benchmark model.
+
+<img src="../images/imaging.png" alt="Migration imaging" width="800">
+
