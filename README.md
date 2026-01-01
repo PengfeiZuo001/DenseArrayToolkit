@@ -4,9 +4,10 @@
 ![GitHub Pull Requests](https://img.shields.io/github/issues-pr/seismic-chen/DenseArrayToolkit-GUI)
 ![GitHub Issues](https://img.shields.io/github/issues/seismic-chen/DenseArrayToolkit-GUI)
 
-The main branch is currently under active development and will be ready soon.
+The **main branch** is currently under active development and will be ready soon.
 
-For a more stable version, please check out the [DAT-public](https://github.com/PengfeiZuo001/DenseArrayToolkit/tree/DAT-public) branch.
+For a more stable version, please check out the [**DAT-public**](https://github.com/PengfeiZuo001/DenseArrayToolkit/tree/DAT-public) branch.
 
-We’re very happy to receive your feedback.
-Cheers.
+For more details, please refer to the [**documentation**](https://pengfeizuo001.github.io/DenseArrayToolkit/).
+
+We’re very happy to receive your feedback. Cheers.
