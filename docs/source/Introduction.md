@@ -2,9 +2,10 @@
 
 ``DAT`` is a MATLAB-based software package for dense seismic array data processing and imaging. No dependency is required. You can run the program directly after downloading the source code without any warning. 
 
-In the ``./demo/`` directory, we provide some examples to show how to use DAT.
+In the ``./demo/`` directory, we provide some examples to show how to use DAT. We provide two presentive array geometries: linear array and distributed array. Array data is stored in the ``./data/`` directory. You can also use your own array data by following the same format (for details, please refer to [Getting started](Getting_started.md)).
 
 ## Examples
+
 **1. RF Stacking**:
 ``` matlab
 clc;clear;close all;
