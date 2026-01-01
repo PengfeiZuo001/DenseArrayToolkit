@@ -1,6 +1,9 @@
 function setupPaths()
+
+    addpath('./')
     addpath ./processRFmatlab-master/
     processRFmatlab_startup;
+    
     addpath(genpath('./data_io/'));
     addpath(genpath('./CCP/'));
     addpath(genpath('./preprocessing/'));
@@ -9,5 +12,7 @@ function setupPaths()
     addpath(genpath('./imaging/'));
     addpath(genpath('./visualization/'));
     addpath(genpath('./utilities/'));
+
     javaaddpath('./utilities/FMI/lib/FMI.jar');
+
 end

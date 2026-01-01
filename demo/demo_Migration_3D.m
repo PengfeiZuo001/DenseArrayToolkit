@@ -19,11 +19,6 @@
 clear; clc; close all;
 
 %% 0. Setup paths and parameters
-% Initialize the processing environment by adding necessary functions and
-% dependencies to the MhATLAB path. This ensures access to all required
-% processing routines in the DenseArrayToolkit.
-setupPaths();
-
 % Load configuration file containing essential parameters for data processing,
 % including paths, processing parameters, and imaging settings
 config = loadConfig();
@@ -98,6 +93,8 @@ gridStruct = createGrid(DataStruct, dx, dy, dz, zmax, xpad, ypad);
 % Create 3D velocity model for migration imaging
 nptsx = gridStruct.nx;
 nptsy = gridStruct.ny;
+% nptsx = 5;
+% nptsy = 4;
 
 gridStruct = getVelocityModel('3D', gridStruct, nptsx,nptsy);
 
@@ -199,7 +196,7 @@ options.profileType = 'predefined';  % Use predefined profile paths
 % Define North-South profile crossing Baiyan Obo mining area
 options.profilePoints(:,1) = [76.6927   76.6927 nan 0       200];
 options.profilePoints(:,2) = [0         150     nan 66.9016 66.9016];
-options.dem = load('./visualization/Baiyanebo_DEM.mat');
+options.dem = load('../visualization/Baiyanebo_DEM.mat');
 
 % Visualize stacked migration and CCP results
 visualizeImage(migImage, gridStruct, options);

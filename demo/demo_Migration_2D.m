@@ -26,11 +26,6 @@
 clear; clc; close all;
 
 %% 0. Setup paths and parameters
-% Initialize the processing environment by adding necessary toolbox functions
-% and dependencies to the MATLAB path. This ensures access to all required
-% processing routines in the DenseArrayToolkit.
-setupPaths();
-
 % Load configuration file containing essential parameters for data processing
 % The configuration includes paths, processing parameters, and imaging settings
 % that control the entire migration workflow
@@ -53,7 +48,7 @@ CCPParam           = config.CCPParam;
 
 % Override data folder path for this specific demonstration
 % This points to the Qaidam Basin dataset for 2D migration example
-dataFolder = './data/event_waveforms_QBI';
+dataFolder = '../data/event_waveforms_QBI';
 %% 1. Read data
 % Load seismic waveform data in SAC (Seismic Analysis Code) format from the 
 % specified directory. The read_SAC function reads both waveform data and 

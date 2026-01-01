@@ -20,14 +20,16 @@ if ~ischar(ModelType) || ~ismember(ModelType, {'1D', '2D', '3D'})
     error('ModelType must be one of: 1D, 2D, or 3D');
 end
 
-
 gridStruct.ModelType = ModelType;
+nx = gridStruct.nx;
+ny = gridStruct.ny;
+nz = gridStruct.nz;
+
 switch ModelType
     case '1D'
         % Get 1D velocity model from CRUST1.0
         model = obtain_crust1_QB();
-        nx = gridStruct.nx;
-        
+
         % Interpolate P and S wave velocities to grid points
         vp = interp1(model(:,1), model(:,2), gridStruct.z, 'nearest', 'extrap');
         vs = interp1(model(:,1), model(:,3), gridStruct.z, 'nearest', 'extrap');
@@ -53,7 +55,7 @@ switch ModelType
 %         [LON, LAT] = xy2latlon(X, Y, gridStruct.originLon, gridStruct.originLat);
 
         % load regional velocity model
-        filename = './velocity_model/Zhao2013_QB_PS2.2.txt';
+        filename = '../velocity_model/Zhao2013_QB_PS2.2.txt';
         matrix = readmatrix(filename);
         lon = matrix(:,1); 
         lat = matrix(:,2); 
@@ -119,9 +121,8 @@ switch ModelType
         % Create lat/lon grid for interpolation
         lonall = linspace(LonMin, LonMax, nptsx);
         latall = linspace(LatMin, LatMax, nptsy);
-
-        vpgrid = zeros(zmax/dz+1,nptsx,nptsy);
-        vsgrid = zeros(zmax/dz+1,nptsx,nptsy);
+        vpgrid = zeros(nz,nptsx,nptsy);
+        vsgrid = zeros(nz,nptsx,nptsy);
 
         % Loop through each grid point to build 3D model
         for i = 1:length(latall)
@@ -167,10 +168,12 @@ switch ModelType
 
             end
         end
+
+        % interplate
+
 %         % Create interpolants for the 3D velocity model (used in ccp)
         Fvp = scatteredInterpolant(X, Y, Z, VP);
         Fvs = scatteredInterpolant(X, Y, Z, VS);
-        %-----------------3D model---------------------------------
         gridStruct.Fvp = Fvp;
         gridStruct.Fvs = Fvs;
         %----------------------------------------------------------

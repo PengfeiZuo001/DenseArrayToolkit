@@ -5,7 +5,7 @@ function [distAll,depthAll,VAll] = plotCCPXsectionCartesian(X,Y,Z,V,gridStruct,p
 F = scatteredInterpolant(X(:),Y(:),Z(:),V(:));
 depth0 = 0:0.5:max(Z(:));
 % load colormap
-cmap = load('./visualization/colormap/roma.mat');
+cmap = load('../visualization/colormap/roma.mat');
 % load DEM
 if ~isempty(dem)
     demX = X(:,:,1);

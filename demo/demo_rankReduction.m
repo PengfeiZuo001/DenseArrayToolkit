@@ -25,14 +25,11 @@ clear; clc; close all;
 
 %% 0. Setup Paths and Parameters
 % --------------------------------------------------
-% Add project toolboxes and dependencies to MATLAB path
-setupPaths();
-
 % Load configuration parameters for all processing steps
 config = loadConfig();
 
 % Define data folder containing SAC waveform files
-dataFolder = './data/event_waveforms_BY';
+dataFolder = '../data/event_waveforms_BY';
 
 % Extract processing parameters from configuration
 PreprocessingParam = config.PreprocessingParam;  % Data preprocessing settings

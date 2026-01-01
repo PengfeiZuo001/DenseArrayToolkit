@@ -58,7 +58,7 @@ end
 
 %% Load required data
 % Load colormap
-cmap = load('./visualization/colormap/roma.mat');
+cmap = load('../visualization/colormap/roma.mat');
 %% Prepare visualization data
 % Extract coordinates
 X = ccpResult.X;

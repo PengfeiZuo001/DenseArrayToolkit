@@ -51,7 +51,7 @@ xmin = 0;
 xmax = max(x)+min(x);
 
 % load colormap
-cmap = load('./visualization/colormap/roma.mat');
+cmap = load('../visualization/colormap/roma.mat');
 figure();
 set(gcf,'Position',[100 100 800 1200],'color','w')
 subplot(311)

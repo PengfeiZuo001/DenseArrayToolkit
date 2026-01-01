@@ -12,17 +12,12 @@
 clear; clc; close all;
 
 %% 0. Setup Paths and Parameters
-% 0.1 Set up paths
-%   Calls the custom function setupPaths(), which typically adds required toolboxes 
-%   or code libraries to MATLAB's search path.
-setupPaths()
-
-% 0.2 Load configuration
+% 0.1 Load configuration
 %   Uses the custom function loadConfig() to load configuration files, 
 %   such as data paths and processing parameters.
 config = loadConfig();
 
-% 0.3 Use configuration parameters
+% 0.2 Use configuration parameters
 %   Extracts important parameters from the configuration file as local variables
 %   for use in subsequent functions.
 dataFolder         = config.dataFolder;
@@ -85,7 +80,7 @@ for iEvent = 1:length(eventList)
     plotCommonEventGather(DataStruct, EventID, 'trace','wigb');
     
     % Save current figure as PNG file with 150 dpi resolution
-    export_fig(['./figures/', EventID, '.png'], '-r150');
+    % export_fig(['./figures/', EventID, '.png'], '-r150');
     
     % Close all current figures to prevent generating too many windows during batch processing
     close all
