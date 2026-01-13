@@ -18,12 +18,11 @@
 % for improved signal-to-noise ratio in dense array applications.
 
 clear; clc; close all;
-cd ../
-
 %% 0. Setup paths and parameters
 % Initialize the processing environment by adding necessary functions and
 % dependencies to the MATLAB path. This ensures access to all required
 % processing routines in the DenseArrayToolkit.
+cd ../
 setupPaths();
 
 % Load configuration file containing essential parameters for data processing,
@@ -94,19 +93,21 @@ dx = 10;    % Horizontal x-direction grid spacing (km)
 dy = 10;    % Horizontal y-direction grid spacing (km)
 dz = 0.5;   % Vertical grid spacing (km) - finer resolution for CCP
 zmax = 100; % Maximum imaging depth (km)
-
+xpad = 40;
+ypad = 40;
 % Create 3D imaging grid with specified parameters
-gridStruct = createGrid(DataStruct, dx, dy, dz, zmax);
+gridStruct = createGrid(DataStruct, dx, dy, dz, zmax, xpad, ypad);
 
 % Create 3D velocity model for CCP imaging
 % npts = 10 specifies the number of interpolation points for velocity model
-npts = 10;
+npts = 5;
 gridStruct = getVelocityModel('3D', gridStruct, npts);
 
 %% 5. Compute receiver functions
 % Apply deconvolution to extract receiver functions from seismic waveforms
 % This isolates P-to-S converted phases that contain information about
 % subsurface discontinuities beneath the array
+DeconvParam.verbose = 0;
 DataStruct = deconv(DataStruct, DeconvParam);
 
 %% 6. CCP stacking
@@ -116,11 +117,8 @@ DataStruct = deconv(DataStruct, DeconvParam);
 % - Apply rank reduction preprocessing for noise suppression
 %
 % Initialize arrays to store CCP results from all events:
-% dimg - 3D CCP image volume
-% count - 3D hit count volume for normalization
-dimg = [];    % 3D CCP image results
-count = [];   % 3D hit count for normalization
-nMigratedEvents = 1;    % Counter for successfully processed events
+ccpResults = [];    % 3D CCP image results
+nMigratedEvents = 0;    % Counter for successfully processed events
 
 minTrace = 100; % Minimum number of traces required for CCP imaging
 minSNR = 5;    % Minimum SNR of the RF required for CCP imaging
@@ -144,22 +142,99 @@ for iEvent = 1:length(eventid)
     % Apply deconvolution to extract receiver functions
     % This isolates P-to-S converted phases from the P-wave coda
     gather = deconv(gather, DeconvParam);
+%     RadonParam.N1 = 5;
+%     gatherRadon = radonTransform3D(gather, gridStruct, RadonParam);
+    % Set up Radon transform parameters
+    itrCell = {gather.RF};
+    d1 = cell2mat(cellfun(@(rf) rf.itr, itrCell,'UniformOutput', false));
+    % px/py - Slowness parameters (1/velocity) in x/y directions
+    px = linspace(-0.01,0.01,20); % 20 slowness values from -0.01 to 0.01 s/m
+    py = linspace(-0.01,0.01,20); % Same range for y direction
+    dt = 0.1; % Time sampling interval (s)
+    t = (0:size(d1,1)-1)*dt; % Time vector
     
+    stationList = getStations(gather);
+    stlo = [stationList.stlo]';  % station longitude
+    stla = [stationList.stla]';  % station latitude
+    
+    % Convert to projected coordinates (2D)
+    [hx, hy] = latlonToProjectedCoords(stlo, stla, gridStruct);    
+    % Create parameter structure for Radon transform
+    Param.hx  = hx;       % Receiver x-coordinates (required by radon_op)
+    Param.hy  = hy;       % Receiver y-coordinates
+    Param.px  = px;       % Slowness parameters in x-direction
+    Param.py  = py;       % Slowness parameters in y-direction
+    Param.nt = length(t); % Number of time samples
+    Param.dt = dt;        % Time sampling interval
+    Param.type = 1;       % Transform type (1 = linear Radon transform)
+    Param.isGrid = 0;
+
+    % Get number of slowness parameters
+    npx = length(px);
+    npy = length(py);
+    
+    % Preallocate transform model matrix
+    ma = zeros(Param.nt, npx, npy); % Initial model (all zeros)
+    
+    % Set PCG (Preconditioned Conjugate Gradient) parameters
+    N1 = 10; % Maximum number of iterations
+    N2 = 1;  % Number of restart iterations
+    
+    % Apply 3D Radon Transform using PCG algorithm
+
+    % Perform inverse Radon transform using PCG
+    % yc_pcg - Preconditioned Conjugate Gradient solver
+    % @radon3d_op - Handle to Radon transform operator
+    % d1_otg - Input data (time gather after rank reduction)
+    % ma - Initial model (zeros)
+    % N1, N2 - PCG parameters
+    % 1 - Flag indicating forward/inverse transform
+    mi = yc_pcg(@radon3d_op, Param, d1, ma, N1, N2, 1);
+    
+    % Perform forward Radon transform to reconstruct data from model
+%     d1_radon = radon3d_op(mi_z, Param, 1);
+    Param.hx = gridStruct.x;      % x-offset coordinates of receivers
+    Param.hy = gridStruct.y;      % y-offset coordinates of receivers
+    Param.isGrid = 1;
+    d1_reg = radon3d_op(mi, Param, 1);  % forward modeling from the found model
+    % Visualize original and Radon-transformed data side by side
+    figure;
+    % Reshape and concatenate original and transformed data for display
+    imagesc([d1 d1_radon]);
+    caxis([-0.1 0.1]); % Set color axis limits
+    colormap(seismic(1))
+    colorbar;
+    title('Original (left) vs Radon-transformed (right) data');
+    xlabel('Trace number');
+    ylabel('Time sample');
     % Apply rank reduction preprocessing to improve signal quality
     % This helps suppress noise and enhance coherent signals
-    RankReductionParam = config.RankReductionParam;
-    RankReductionParam.rank = 10;  % Set rank reduction parameter
-    [gatherReconstructed, d1_otg] = rankReduction(gather, gridStruct, RankReductionParam);
+%     RankReductionParam = config.RankReductionParam;
+%     RankReductionParam.rank = 3;  % Set rank reduction parameter
+%     [gatherReconstructed, d1_otg,~] = rankReduction3D(gather, gridStruct, RankReductionParam);
+%     RankReductionParam.rank = 10;  % Set rank reduction parameter
+%     [gatherReconstructed1, d1_otg,~] = rankReduction3D(gather, gridStruct, RankReductionParam);
 
+%     figure;
+%     set(gcf,'Position',[0 0 1500 400],'Color','w')
+%     ax1 = subplot(131);
+%     plotCommonEventGather(gather,evid,'trace','imagesc',ax1)
+%     ax1.Title.String='Raw RFs';
+%     ax2 = subplot(132);
+%     plotCommonEventGather(gatherReconstructed1,evid,'trace','imagesc',ax2)
+%     ax2.Title.String='Rank = 10';
+%     ax3 = subplot(133);
+%     plotCommonEventGather(gatherReconstructed,evid,'trace','imagesc',ax3)
+%     ax3.Title.String='Rank = 3'; 
+
+    plotZRandRF(gather)
+%     [gatherReconstructed, d1_otg] = radonTransform3D(gather, gridStruct, RankReductionParam);
     % Perform 3D CCP stacking using Common Conversion Point method
     % This maps receiver functions to their theoretical conversion points
     ccpResult = CCPCommonEventGather(gatherReconstructed, gridStruct, CCPParam);
     
     % Store CCP results for current event
-    % dimg - 3D CCP image volume
-    % count - 3D hit count volume for normalization
-    dimg(:,:,:,nMigratedEvents) = ccpResult.img;
-    count(:,:,:,nMigratedEvents) = ccpResult.count;
+    ccpResults = [ccpResults; ccpResult];
     
     % Close all figure windows to avoid memory issues during batch processing
     close all;
@@ -170,15 +245,7 @@ end
 %% 7. Results output
 % Create final 3D CCP image by stacking all events and normalizing by hit count
 % This produces the final volumetric image showing subsurface structure
-
-% Extract grid coordinates from CCP results
-X = ccpResult.X;  % X-coordinate grid (km)
-Y = ccpResult.Y;  % Y-coordinate grid (km)
-Z = ccpResult.Z;  % Z-coordinate grid (km)
-
-% Create normalized CCP image by stacking all events
-V = sum(dimg,4)./max(sum(count,4),1);  % Normalized by hit count
-ccpResult.V = V;
+ccpImage = stackImagingResults(ccpResults,7);
 
 % Configure visualization options
 options = struct();
@@ -190,24 +257,11 @@ options.profileType = 'predefined';  % Enable interactive profile selection
 % N-S profile crossing Baiyan Obo minning area
 options.profilePoints(:,1) = [76.6927 76.6927 nan 0 200];
 options.profilePoints(:,2) = [0 150 nan 66.9016 66.9016];
+options.dem = load('./visualization/Baiyanebo_DEM_small.mat');
 % E-W profile crossing Baiyan Obo minning area
 % options.profilePoints(:,1) = [0; 200];
 % options.profilePoints(:,2) = [66.9016; 66.9016];
-[profileStruct] = visualizeCCPResults(ccpResult, gridStruct, options);
-
-
-% Display 3D fold map showing data coverage
-figure;
-fold_map = sum(count,4);  % Total hit count across all events
-h = slice(X,Y,Z,fold_map,90,90,50);  % Create slices at specified positions
-xlabel('X (km)');
-ylabel('Y (km)');
-zlabel('Z (km)');
-set(h(:),'EdgeColor','none')  % Remove edge lines for cleaner display
-set(gca,'ZDir','reverse')     % Reverse Z-axis for geological convention
-cm = colormap('hot');         % Use hot colormap for fold display
-colormap(flipud(cm));         % Reverse colormap
-caxis([0 20]);                % Set color scale for fold values
+visualizeImage(ccpImage, gridStruct, options);
 
 % Optional: Save results to file for future analysis
 % save './results/BaiyanEbo_ccp.mat' 'X' 'Y' 'Z' 'V' 'gridStruct'

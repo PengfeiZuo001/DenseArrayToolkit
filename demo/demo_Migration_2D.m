@@ -29,6 +29,7 @@ clear; clc; close all;
 % Initialize the processing environment by adding necessary toolbox functions
 % and dependencies to the MATLAB path. This ensures access to all required
 % processing routines in the DenseArrayToolkit.
+cd ..
 setupPaths();
 
 % Load configuration file containing essential parameters for data processing
@@ -53,7 +54,7 @@ CCPParam           = config.CCPParam;
 
 % Override data folder path for this specific demonstration
 % This points to the Qaidam Basin dataset for 2D migration example
-dataFolder = './data/event_waveforms_QBI';
+dataFolder = '../DenseArrayToolkit-data/event_waveforms_QBI';
 %% 1. Read data
 % Load seismic waveform data in SAC (Seismic Analysis Code) format from the 
 % specified directory. The read_SAC function reads both waveform data and 
@@ -76,6 +77,7 @@ DataStruct = read_SAC(dataFolder);
 % - Normalizes amplitudes for consistent processing
 %
 % This step ensures clean, consistent data suitable for deconvolution and imaging
+PreprocessingParam.highs = 5.0;
 DataStruct = preprocessing(DataStruct, PreprocessingParam);
 
 %% 3. Get array and event information
@@ -118,10 +120,10 @@ EventStationTable = getEventStationTable(DataStruct);
 % and establishes the velocity structure used for ray tracing and migration
 %
 % Grid parameters:
-dx = 4;  % Horizontal grid spacing in x-direction (km)
-dy = 4;  % Horizontal grid spacing in y-direction (km) 
-dz = 1;  % Vertical grid spacing (km)
-zmax = 100; % Maximum depth for imaging (km)
+dx = 2;  % Horizontal grid spacing in x-direction (km)
+dy = 2;  % Horizontal grid spacing in y-direction (km) 
+dz = 0.1;  % Vertical grid spacing (km)
+zmax = 15; % Maximum depth for imaging (km)
 xpad = 40;  % Padding distance beyond array extent in x-direction (km)
 ypad = 40;  % Padding distance beyond array extent in y-direction (km)
 %
@@ -129,14 +131,14 @@ ypad = 40;  % Padding distance beyond array extent in y-direction (km)
 % - Array geometry from station coordinates
 % - Specified grid spacing and depth range
 % - Padding to ensure complete coverage of the imaging domain
-gridStruct = createGrid(DataStruct, dx, dy, dz, zmax, xpad, ypad);
+GridStruct = createGrid(DataStruct, dx, dy, dz, zmax, xpad, ypad);
 
 % Create 1D velocity model for migration imaging
 % For 2D migration, a 1D velocity model is typically sufficient and provides
 % computational efficiency while maintaining reasonable accuracy for teleseismic
 % imaging. The velocity model includes P-wave and S-wave velocities as a function
 % of depth, which are essential for calculating travel times and migration operators
-gridStruct = getVelocityModel('2D',gridStruct);
+GridStruct = getVelocityModel('2D',GridStruct);
 %% 5. Migration imaging
 % Core processing loop: Perform 2D migration and CCP stacking for each event
 % This section implements the main imaging algorithms to create subsurface
@@ -153,7 +155,8 @@ ccpResults = []; % Array to store CCP stacking results from all events
 
 nMigratedEvents = 0; % Counter for successfully processed events
 
-minTrace = 50;
+minTrace = 60;
+goodEvent = {};
 % Process each event that passed azimuthal filtering
 % The loop iterates through all events with consistent back-azimuths
 for iEvent = 1:length(eventid)
@@ -170,37 +173,47 @@ for iEvent = 1:length(eventid)
     if length(gather) < minTrace
         continue % Skip to next event if insufficient stations
     end
+    goodEvent = [goodEvent;evid];
 
     % Compute receiver functions through iterative deconvolution
     % Receiver functions isolate the P-to-S converted phases that reveal
     % subsurface discontinuities. Gaussian filtering (gauss=2.5) controls
     % the frequency content and resolution of the resulting images
-    DeconvParam.gauss = 2.5;    % Gaussian width parameter for frequency filtering
+    DeconvParam.gauss = 5;    % Gaussian width parameter for frequency filtering
     DeconvParam.verbose = false; % Suppress verbose output during processing
     gather = deconv(gather, DeconvParam);
 
     % Apply Radon Transform for enhanced signal-to-noise ratio
     % The Radon transform helps suppress coherent noise and improve
     % signal coherency across the array by focusing energy along moveout curves
-    RadonParam.highs = 1.2;   % High-slowness cutoff (s/km)
-    RadonParam.pmax = 0.02;   % Maximum slowness (s/km)
-    RadonParam.pmin = -0.02;  % Minimum slowness (s/km)
-    gatherRadon = radonTransform2D(gather, gridStruct, RadonParam);
-
+    RadonParam.highs = DeconvParam.gauss/2;  % High-slowness cutoff (s/km)
+    RadonParam.pmax = 0.06;   % Maximum slowness (s/km)
+    RadonParam.pmin = -0.06;  % Minimum slowness (s/km)
+    RadonParam.N1 = 10;
+    RadonParam.plotRadon = 0; 
+%     gatherRadon = radonTransform2D(gather, GridStruct, RadonParam);
+    gatherRadon = gather;
+    
     % Perform 2D Common Conversion Point (CCP) stacking
     % CCP stacking bins receiver functions based on their theoretical conversion
     % points in the subsurface and stacks them to create a migrated image
     CCPParam.imagingType = '2D';    % Set imaging mode to 2D
     CCPParam.smoothLength = 0;      % No additional smoothing applied
-    ccpResult = CCPCommonEventGather(gatherRadon, gridStruct, CCPParam);
+    ccpResult = CCPCommonEventGather(gatherRadon, GridStruct, CCPParam);
     ccpResults = [ccpResults; ccpResult]; % Accumulate CCP results
 
     % Perform least-squares migration for improved resolution
     % This method solves an inverse problem to account for limited aperture
     % and uneven station coverage, providing sharper images than standard migration
-    MigParam.itermax = 30;          % Maximum iterations for convergence
+    MigParam.itermax = 20;          % Maximum iterations for convergence
+    MigParam.mu = 0.001;
+    MigParam.ssa = 0;
+    MigParam.fhigh = RadonParam.highs;
     MigParam.gauss = DeconvParam.gauss; % Use same Gaussian parameter as deconvolution
-    migResult = leastSquaresMig2D(gatherRadon, gridStruct, MigParam);
+    MigParam.plotMig = 0;           % plot migration imaging results
+    MigParam.t1 = -3;
+    MigParam.t2 = 5;
+    migResult = leastSquaresMig2D(gatherRadon, GridStruct, MigParam);
 
     % Store migration results for current event
     migResults = [migResults; migResult]; % Accumulate migration results
@@ -222,8 +235,9 @@ end
 % - Common color scale for direct amplitude comparison
 % - Grid coordinates for spatial reference
 % - Smoothing applied to enhance interpretability while preserving features
-smoothLength = 3; % Smoothing parameter for display (grid points)
-plotCCPMigrationResults(ccpResults, migResults, gridStruct, smoothLength);
+smoothLength = 2; % Smoothing parameter for display (grid points)
+dem = load('Qaidam_DEM.mat');
+plotCCPMigrationResults(ccpResults, migResults, GridStruct, smoothLength, dem);
 
 %% 7. Save results
 % Store final migration and CCP results to files for future analysis and sharing

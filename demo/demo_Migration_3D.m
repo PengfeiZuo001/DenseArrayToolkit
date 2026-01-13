@@ -86,8 +86,8 @@ EventStationTable = getEventStationTable(DataStruct);
 % 2. Create 3D imaging volume based on array geometry
 % 3. Generate 3D velocity model for migration
 % Note: Using 3D velocity model for accurate ray tracing in volumetric imaging
-dx = 10;    % Horizontal x-direction grid spacing (km)
-dy = 10;    % Horizontal y-direction grid spacing (km)
+dx = 5;    % Horizontal x-direction grid spacing (km)
+dy = 5;    % Horizontal y-direction grid spacing (km)
 dz = 1;     % Vertical grid spacing (km)
 zmax = 100; % Maximum imaging depth (km)
 xpad = 20;  % Horizontal padding in x-direction (km)
@@ -109,8 +109,7 @@ RankReductionParam.ox = min(gridStruct.x); % Minimum x-coordinate of grid
 RankReductionParam.oy = min(gridStruct.y); % Minimum y-coordinate of grid
 RankReductionParam.mx = max(gridStruct.x); % Maximum x-coordinate of grid
 RankReductionParam.my = max(gridStruct.y); % Maximum y-coordinate of grid
-RankReductionParam.rank = 10;             % Initial rank for reduction
-RankReductionParam.rank = 5;
+RankReductionParam.rank = 5;             % Initial rank for reduction
 RankReductionParam.fhigh = 2.4;
 %% 5. Migration imaging
 % Perform 3D least-squares migration with rank reduction preprocessing:
@@ -128,54 +127,71 @@ MigParam.paramMig = setMigParam3D(gridStruct);
 
 minTrace = 100; % Minimum number of traces required for migration imaging
 minSNR = 3;    % Minimum SNR of the RF required for migration imaging
-
+goodevents = {};
 % Process each event in the dataset
 for iEvent = 1:length(eventid)
-    evid = eventid{iEvent}; 
-    
+    evid = eventid{iEvent};
+
     % Extract seismic records for current event (Common Event Gather)
     % This groups all recordings of the same event across different stations
     gather = getCommonEventGather(DataStruct, evid);
-    
+
     % Extract signal-to-noise ratios for quality control
-    snrAll = cell2mat(cellfun(@(rf) rf.snr, {gather.RF}, 'UniformOutput', false));    
-    
+    snrAll = cell2mat(cellfun(@(rf) rf.snr, {gather.RF}, 'UniformOutput', false));
+
     % Quality control: Skip events with insufficient station coverage or low SNR
     % Minimum minTrace stations required to ensure reliable 3D imaging results
     if length(gather) < minTrace || mean(snrAll) < minSNR
         continue
     end
-    
+    goodevents = [goodevents evid];
+
     % Compute receiver functions through deconvolution
     % This isolates converted phases from the P-wave coda
     DeconvParam.verbose = false;
+    DeconvParam.gauss  = 2.5;
     gather = deconv(gather, DeconvParam);
 
     % Apply rank reduction preprocessing to improve signal quality
     % This helps suppress noise and enhance coherent signals for better imaging
     RankReductionParam.plotRankReduction = 1;
     [gatherDRR, d1_otg] = rankReduction3D(gather, gridStruct, RankReductionParam);
-    
+
+    % Set up Radon transform parameters
+    % px/py - Slowness parameters (1/velocity) in x/y directions
+
+    % Create parameter structure for Radon transform
+    RadonParam.pxmin  = -0.01;       % minimum slowness in x-direction
+    RadonParam.pxmax  = 0.01;        % maximum slowness in x-direction
+    RadonParam.pymin  = -0.01;       % minimum slowness in y-direction
+    RadonParam.pymax  = 0.01;        % maximum slowness in y-direction
+    RadonParam.type = 1;       % Transform type (1 = linear Radon transform)
+    RadonParam.isGrid = 0;
+    RadonParam.tmax = 50;
+
+%     [gatherRadon, dp_reg] = radonTransform3D(gather, gridStruct, RadonParam);
+
     % Perform 3D least-squares migration
     % This method provides improved resolution compared to standard migration
     MigParam.gauss = DeconvParam.gauss;     % Gaussian factor for source time function
-    MigParam.tmax = 80;                     % Maximum length of the RF waveform
-    MigParam.paramMig.isReconRFs = 1;       % Flag control use the reconstructed data or not
-    MigParam.paramMig.dotg = d1_otg;        % Save reconstructed data
+    MigParam.tmax = 50;                     % Maximum length of the RF waveform
+    MigParam.paramMig.isReconRFs = 0;       % Flag control use the reconstructed data or not
+    MigParam.paramMig.dotg = dp_reg;        % Save reconstructed data
+    MigParam.paramMig.fhigh= 1.2;
     migResult = leastSquaresMig3D(gatherDRR, gridStruct, MigParam);
-
+%     migResult = leastSquaresMig3D(gatherRadon, gridStruct, MigParam);
     % Store migration results for current event
     % mig - Standard 3D migration results
     % migls - 3D least-squares migration results
     migResults = [migResults; migResult];
-    
+
     % Perform CCP stacking for comparison with migration results
     ccpResult = CCPCommonEventGather(gatherDRR, gridStruct, CCPParam);
     ccpResults = [ccpResults; ccpResult];
 
     % Optional pause for visualization (can be removed for batch processing)
-%     pause;
-    
+    pause;
+
     % Close all figure windows to avoid memory issues during batch processing
     close all;
     nMigratedEvents = nMigratedEvents + 1;
@@ -184,8 +200,9 @@ end
 % Combine imaging results from all processed events using stackImagingResults
 % This function averages migration results and normalizes CCP results by count
 % to create consolidated 3D image volumes for visualization
-ccpImage = stackImagingResults(ccpResults);
-migImage = stackImagingResults(migResults);
+smoothLength = 3;
+ccpImage = stackImagingResults(ccpResults,smoothLength);
+migImage = stackImagingResults(migResults,smoothLength);
 
 %% 7. Visualization
 % Display 3D imaging results using interactive visualization tools

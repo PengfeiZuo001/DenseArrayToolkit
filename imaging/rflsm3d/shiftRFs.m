@@ -34,7 +34,7 @@ function [rfshift,src_func,mask] = shiftRFs(rf0,take_off,back_az,xo,yo,x,y,rx,ry
     dsrc = genPlaneWave(src_func,take_off,back_az,xo,yo,x,y,vp,nt,dt,src_type,fpeak);
     
     %%  forward
-    save_wavefield = 1;
+    save_wavefield = 0;
     img = zeros(nz,nx,ny);
     [~,mod_source,~] = ssfm_fd_3D(img,dsrc,save_wavefield,param);
     
@@ -47,13 +47,13 @@ function [rfshift,src_func,mask] = shiftRFs(rf0,take_off,back_az,xo,yo,x,y,rx,ry
             sig2 = mod_source(:,i,j);
         
 %             % cross-correlation
-            xc=xcorr(sig2,sig1);
-            tax = [-(nt-1):(nt-1)]*dt;
-            [~,ind]=max(xc);
-            tdelay = tax(ind);
+%             xc=xcorr(sig2,sig1);
+%             tax = [-(nt-1):(nt-1)]*dt;
+%             [~,ind]=max(xc);
+%             tdelay = tax(ind);
     
             % phase only cross correlation
-%             [tdelay, ~, ~] = phase_only_correlation_simple(sig1, sig2, dt);
+            [tdelay, ~, ~] = phase_only_correlation_simple(sig1, sig2, dt);
 
             % shift receiver function which locate at the regular grid
             rfshift0(:,i,j) = fftShift(rftmp0(:,i,j),it,tdelay);

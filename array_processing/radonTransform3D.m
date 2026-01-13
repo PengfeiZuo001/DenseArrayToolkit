@@ -1,4 +1,4 @@
-function DataStruct = radonTransform3D(DataStruct, gridStruct, param)
+function [DataStruct, dp_reg] = radonTransform3D(DataStruct, gridStruct, param)
 % RADONTRANSFORM3D  Perform 3D Radon Transform-based array processing on DataStruct.
 %
 % Usage:
@@ -54,6 +54,8 @@ if ~isfield(param, 'N2'),         param.N2         = 1;     end
 if ~isfield(param, 'plotRadon'),  param.plotRadon  = false; end
 if ~isfield(param, 'order'),      param.order      = 'postdecon'; end
 if ~isfield(param, 'type'),       param.type       = 1;     end
+if ~isfield(param, 'isGrid'),     param.isGrid     = 0;     end
+if ~isfield(param, 'tmax'),        param.tmax      = 30;    end
 
 % Basic field checks (on the first element, assuming consistent struct array)
 requiredTopLevel = {'EventInfo','Waveforms','TravelInfo','RF'};
@@ -78,17 +80,10 @@ end
 
 %% 2. 3D Radon Parameter Setup
 % Define slowness axes for x and y directions (s/km)
-px = linspace(param.pxmin, param.pxmax, 25);
-py = linspace(param.pymin, param.pymax, 25);
-npx = length(px);
-npy = length(py);
-
-% Create Param structure to pass to yc_pcg() or radon3d_op()
-Param.px = px;
-Param.py = py;
-Param.N1 = param.N1;
-Param.N2 = param.N2;
-Param.type = param.type;
+param.px = linspace(param.pxmin, param.pxmax, 25);
+param.py = linspace(param.pymin, param.pymax, 25);
+npx = length(param.px);
+npy = length(param.py);
 
 %% 3. Identify Unique Events
 eventListStruct = getEvents(DataStruct);  % retrieve unique events from the data
@@ -120,10 +115,10 @@ for iEvt = 1:length(eventIDs)
     % Convert to projected coordinates (2D)
     [hx, hy] = latlonToProjectedCoords(stlo, stla, gridStruct);
     
-    % Sort by x coordinate for consistent ordering
-    [hx_sorted, idx] = sort(hx);
-    hy_sorted = hy(idx);
-    commonEventGather = commonEventGather(idx);
+%     % Sort by x coordinate for consistent ordering
+%     [hx_sorted, idx] = sort(hx);
+%     hy_sorted = hy(idx);
+%     commonEventGather = commonEventGather(idx);
 
     %% 4.2 Extract and Preprocess Waveforms
     [d_z, d_r, d_t, t, dt] = extractAndPreprocessWaveforms3D(commonEventGather,...
@@ -137,25 +132,25 @@ for iEvt = 1:length(eventIDs)
     switch param.order
         case 'predecon'
             %% Set 3D radon parameters
-            Param.hx = hx_sorted;     % x-offsets
-            Param.hy = hy_sorted;     % y-offsets  
-            Param.nt = length(t);
-            Param.dt = dt;
+            param.hx = hx_sorted;     % x-offsets
+            param.hy = hy_sorted;     % y-offsets  
+            param.nt = length(t);
+            param.dt = dt;
 
             % Preallocate transform model "ma" based on type
-            if Param.type == 3  % Hyperbolic
+            if param.type == 3  % Hyperbolic
                 nv = 25;  % default number of velocities
-                Param.v = linspace(1, 8, nv);  % velocity range 1-8 km/s
-                ma = zeros(Param.nt, nv);
+                param.v = linspace(1, 8, nv);  % velocity range 1-8 km/s
+                ma = zeros(param.nt, nv);
             else  % Linear or Parabolic
-                ma = zeros(Param.nt, npx, npy);
+                ma = zeros(param.nt, npx, npy);
             end
 
             %% 4.3 Perform 3D Radon Transform on Z
             try
                 % Initialize the model with zeros
-                mi_z = yc_pcg(@radon3d_op, Param, d_z, ma, param.N1, param.N2, 1);
-                dp_z = radon3d_op(mi_z, Param, 1);  % forward modeling from the found model
+                mi_z = yc_pcg(@radon3d_op, param, d_z, ma, param.N1, param.N2, 1);
+                dp_z = radon3d_op(mi_z, param, 1);  % forward modeling from the found model
 
             catch ME
                 warnMsg = sprintf('[RadonTransform3D] Event %s, Z-component failed: %s', ...
@@ -168,8 +163,8 @@ for iEvt = 1:length(eventIDs)
 
             %% 4.4 Perform 3D Radon Transform on R
             try
-                mi_r = yc_pcg(@radon3d_op, Param, d_r, ma, param.N1, param.N2, 1);
-                dp_r = radon3d_op(mi_r, Param, 1);
+                mi_r = yc_pcg(@radon3d_op, param, d_r, ma, param.N1, param.N2, 1);
+                dp_r = radon3d_op(mi_r, param, 1);
 
             catch ME
                 warnMsg = sprintf('[RadonTransform3D] Event %s, R-component failed: %s', ...
@@ -207,31 +202,44 @@ for iEvt = 1:length(eventIDs)
 
         case 'postdecon'
             %% Perform 3D Radon Transform on RF
-            itrCell = {commonEventGather.RF};
-            d = cell2mat(cellfun(@(rf) rf.itr, itrCell,'UniformOutput', false));
-            d(:,remove_idx) = 0;
+           
             t = commonEventGather(1).RF.ittime;
+            % optionally cut at tmax
+            idxT = (t <= param.tmax);
+            t    = t(idxT);
+
+            % build data matrix d0  [Nt x Ntrace]
+            itrCell = {commonEventGather.RF};
+            d0 = cell2mat(cellfun(@(rf) rf.itr(idxT), itrCell,'UniformOutput', false));
+            d0(:,remove_idx) = 0;
             
             % Set 3D radon parameters
-            Param.hx = hx_sorted;
-            Param.hy = hy_sorted;
-            Param.nt = length(t);
-            Param.dt = dt;
+            param.hx = hx;
+            param.hy = hy;
+            param.nt = length(t);
+            param.dt = dt;
 
             % Preallocate transform model "ma" based on type
-            if Param.type == 3  % Hyperbolic
+            if param.type == 3  % Hyperbolic
                 nv = 25;  % default number of velocities
-                Param.v = linspace(1, 8, nv);  % velocity range 1-8 km/s
-                ma = zeros(Param.nt, nv);
+                param.v = linspace(1, 8, nv);  % velocity range 1-8 km/s
+                ma = zeros(param.nt, nv);
             else  % Linear or Parabolic
-                ma = zeros(Param.nt, npx, npy);
+                ma = zeros(param.nt, npx, npy);
             end
 
             try
                 % Initialize the model with zeros
-                mi = yc_pcg(@radon3d_op, Param, d, ma, param.N1, param.N2, 1);
-                dp = radon3d_op(mi, Param, 1);  % forward modeling from the found model
-
+                mi = yc_pcg(@radon3d_op, param, d0, ma, param.N1, param.N2, 1);
+                dp = radon3d_op(mi, param, 1);  % forward modeling from the found model
+                param.hx = gridStruct.x;      % x-offset coordinates of receivers
+                param.hy = gridStruct.y;      % y-offset coordinates of receivers
+                param.isGrid = 1;
+                dp_reg = radon3d_op(mi, param, 1);  % forward modeling from the found model
+%                 figure
+%                 imagesc([d dp])
+%                 colormap(seismic(1))
+%                 caxis([-0.5 0.5])
             catch ME
                 warnMsg = sprintf('[RadonTransform3D] Event %s, RF failed: %s', ...
                     eventID, ME.message);
@@ -241,9 +249,10 @@ for iEvt = 1:length(eventIDs)
                 continue;
             end
 
-           for n = 1:length(commonEventGather)
+            for n = 1:length(commonEventGather)
                 % save RF
                 commonEventGather(n).RF.itr = dp(:,n);
+                commonEventGather(n).RF.ittime = t;          % new time axis
             end
 
             % Log the successful Radon transform

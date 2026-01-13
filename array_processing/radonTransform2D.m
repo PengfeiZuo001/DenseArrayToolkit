@@ -46,7 +46,7 @@ if ~isfield(param, 'highs'),      param.highs      = 1.2;   end
 if ~isfield(param, 'pmax'),       param.pmax       = 0.05;  end
 if ~isfield(param, 'pmin'),       param.pmin       = -0.05; end
 if ~isfield(param, 'minTraces'),  param.minTraces  = 60;    end
-if ~isfield(param, 'N1'),         param.N1         = 30;    end
+if ~isfield(param, 'N1'),         param.N1         = 20;    end
 if ~isfield(param, 'N2'),         param.N2         = 1;     end
 if ~isfield(param, 'plotRadon'),  param.plotRadon  = false; end
 if ~isfield(param, 'order'),  param.order  = 'postdecon'; end
@@ -249,6 +249,11 @@ for iEvt = 1:length(eventIDs)
                 continue;
             end
 
+            % 可选：绘制处理前后RF和Radon谱
+            if param.plotRadon
+                plotRFandRadonSpectrum(d, dp, mi, t, p, eventID);
+            end
+
            for n = 1:length(commonEventGather)
                 % save RF
                 commonEventGather(n).RF.itr = dp(:,n);
@@ -262,6 +267,47 @@ for iEvt = 1:length(eventIDs)
             % Place updated event gather back into DataStruct
             DataStruct(matchIndex) = commonEventGather;
     end
+end
+
+%% 可视化函数：处理前后RF及Radon谱
+function plotRFandRadonSpectrum(d, dp, mi, t, p, eventID)
+% d: 原始RF [Nt x Ntraces]
+% dp: Radon逆变换后RF [Nt x Ntraces]
+% mi: Radon谱 [Nt x Np]
+% t: 时间轴
+% p: 慢度轴
+% eventID: 事件ID
+
+figure('Name', sprintf('RF & Radon Spectrum for Event %s', eventID), ...
+    'Position', [100, 100, 1400, 600], 'Color', 'w');
+
+subplot(1,3,1);
+imagesc(1:size(d,2), t, d);
+caxis([-3*rms(d(:)) 3*rms(d(:))]);
+colormap(seismic(1));
+colorbar;
+xlabel('Trace #'); ylabel('Time (s)');
+title('Original RF');
+set(gca, 'FontSize', 12);
+ylim([0 30])
+
+subplot(1,3,2);
+imagesc(1:size(dp,2), t, dp);
+caxis([-3*rms(dp(:)) 3*rms(dp(:))]);
+colormap(seismic(1));
+colorbar;
+xlabel('Trace #'); ylabel('Time (s)');
+title('Post-Radon RF');
+set(gca, 'FontSize', 12);
+ylim([0 30])
+
+subplot(1,3,3);
+imagesc(p, t, mi);
+colormap(seismic(1));
+colorbar;
+xlabel('Slowness (s/km)'); ylabel('Time (s)');
+title('Radon Spectrum');
+set(gca, 'FontSize', 12);
 end
 
 end % end of radonTransform main function

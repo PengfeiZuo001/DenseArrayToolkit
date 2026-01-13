@@ -1,7 +1,7 @@
 %% DenseArrayToolkit Common Conversion Point (CCP) Stacking Main Function Example
 % This script demonstrates the complete workflow for seismic imaging using receiver
 % functions and Common Conversion Point stacking method. The workflow processes
-% seismic data from the QBI array to image subsurface structures.
+% seismic data from the Sichuan-Longmenshan array to image subsurface structures.
 %
 % Main processing steps include:
 %   0. Setup paths and parameters - Initialize environment and load configurations
@@ -17,11 +17,10 @@
 % subsurface imaging and structural analysis.
 
 clear; clc; close all;
-
+cd ..
 %% 0. Setup paths and parameters
 % Initialize the processing environment by adding necessary functions to MATLAB path
 % and loading configuration parameters for various processing steps.
-cd ..
 setupPaths();
 
 % Load configuration file containing essential parameters for data processing
@@ -37,20 +36,17 @@ config = loadConfig();
 % - CCPParam: Settings for Common Conversion Point stacking
 dataFolder         = config.dataFolder;
 PreprocessingParam = config.PreprocessingParam;
+MigParam           = config.MigParam;
 RadonParam         = config.RadonParam;
 DeconvParam        = config.DeconvParam;
 CCPParam           = config.CCPParam;
 
-dataFolder1 = './data/event_waveforms_QBI';
-% dataFolder2 = './data/event_waveforms_QBII';
+dataFolder = '../DenseArrayToolkit-data/event_waveforms_SL';
 %% 1. Read data
 % Load seismic waveform data in SAC format from the QBI array deployment
 % The data is encapsulated into a structured array (DataStruct) containing
 % waveforms and metadata for each recording
-DataStruct = read_SAC(dataFolder1);
-% DataStruct1 = read_SAC(dataFolder1);
-% DataStruct2 = read_SAC(dataFolder2);
-% DataStruct = [DataStruct1 DataStruct2];
+DataStruct = read_SAC(dataFolder);
 %% 2. Preprocessing
 % Apply standard seismic data preprocessing steps defined in PreprocessingParam:
 % - Filtering: Remove unwanted frequency components
@@ -77,6 +73,8 @@ evlo = [eventList.evlo]';    % Event epicenter longitude
 
 % List of unique event identifiers
 eventid = {eventList.evid};
+
+
 % Generate event-station correspondence table for efficient data access
 EventStationTable = getEventStationTable(DataStruct);
 
@@ -90,15 +88,16 @@ dx = 4;
 dy = 4; 
 dz = 1;
 zmax = 100;
-xpad = 40;
-ypad = 40;
+xpad = 30;
+ypad = 30;
 gridStruct = createGrid(DataStruct, dx, dy, dz, zmax, xpad, ypad);
 % Create or obtain 3D velocity model with specified sampling (10 points)
 % This model will be used for ray tracing in migration
-% npts = 5;
-% gridStruct = getVelocityModel('3D',gridStruct,npts);
+npts = 5;
+gridStruct = getVelocityModel('3D',gridStruct,npts);
 
-gridStruct = genVelocityModel(gridStruct);
+% Set up 3D migration parameters based on grid structure
+MigParam.paramMig = setMigParam3D(gridStruct);
 %% 5. Migration imaging
 % Perform Common Conversion Point (CCP) stacking for each event that meets quality
 % criteria. This process includes:
@@ -109,42 +108,59 @@ gridStruct = genVelocityModel(gridStruct);
 % 5. CCP stacking to create 3D image volume
 
 % Initialize arrays for accumulating migration results across all events
-nMigratedEvents = 0;   % Counter for successfully processed events
-minTrace = 50; % Minimum number of traces required for CCP imaging
+nMigratedEvents = 1;   % Counter for successfully processed events
+minTrace = 60; % Minimum number of traces required for CCP imaging
 minSNR = 5;    % Minimum SNR of the RF required for CCP imaging
+DeconvParam.radonfilter = 0; % Apply radon transform to seismograms
 DeconvParam.gauss = 2.5;
-CCPParam.smoothLength = 0;
+CCPParam.smoothLength = 3;
 % Process each event that meets the filtering criteria
 ccpResults = [];
+ccpResultsRadon = [];
+migResults = [];
 
 for iEvent = 1:length(eventid)
     evid = eventid{iEvent};
     % Extract seismic records for current event (Common Event Gather)
     gather = getCommonEventGather(DataStruct, evid);
+    DeconvParam.radonfilter = false;
+    DeconvParam.verbose = 0;
+    
+    gather = deconv(gather, DeconvParam);
+%     plotCommonEventGather(gather, [], 'trace', 'wigb')
 
     % Extract the SNR
     snrAll = cell2mat(cellfun(@(rf) rf.snr, {gather.RF}, 'UniformOutput', false));
     % Skip events with fewer than 60 valid stations to ensure imaging quality
-    if length(gather) < minTrace || mean(snrAll)< minSNR || length(gather) > 100
+    if length(gather) < minTrace || mean(snrAll)< minSNR
         continue
     end
+    % Check if Radon filtering is enabled for enhanced signal quality
+    DeconvParam.radonfilter = true;
+    if DeconvParam.radonfilter
+        RadonParam.highs = 1.2;
+        RadonParam.pmax = 0.02;
+        RadonParam.pmin = -0.02;
+        % Apply Radon Transform for array processing
+        gatherRadon = radonTransform2D(gather, gridStruct, RadonParam);
+        export_fig(['./figures/SL_radon_post_rfs_',num2str(evid),'.png'],'-r300')
 
-    % Apply deconvolution
-    gather = deconv(gather, DeconvParam);
-
-    % Apply radon transform
-    RadonParam.highs = 1.2;
-    RadonParam.pmax = 0.05;
-    RadonParam.pmin = -0.05;
-%     gatherRadon = radonTransform2D(gather, gridStruct, RadonParam);
+        CCPParam.smoothLength = 3;
+        ccpResultRadon = CCPCommonEventGather(gatherRadon, gridStruct, CCPParam);
+        ccpResultsRadon = [ccpResultsRadon; ccpResultRadon];
+    end    
     
     % Apply Common Conversion Point stacking for the current event gather
-    CCPParam.imagingType = '3D';
     CCPParam.smoothLength = 3;
     ccpResult = CCPCommonEventGather(gather, gridStruct, CCPParam);
     ccpResults = [ccpResults; ccpResult];
 
-%     pause;
+    % Apply migration imaging
+    MigParam.itermax = 10;
+    MigParam.tmax = 80;
+    migResult = leastSquaresMig3D(gather, gridStruct, MigParam);
+    migResults = [migResults; migResult];
+%      pause;
     % Clear figure windows to avoid memory issues during batch processing
     close all;
     nMigratedEvents = nMigratedEvents + 1;
@@ -153,51 +169,20 @@ end
 % Combine imaging results from all processed events using stackImagingResults
 % This function averages migration results and normalizes CCP results by count
 % to create consolidated 3D image volumes for visualization
-smoothLength = 5;
+smoothLength = 3;
 ccpImage = stackImagingResults(ccpResults,smoothLength);
-% migImage = stackImagingResults(migResults);
+migImage = stackImagingResults(migResults);
+ccpImageRadon = stackImagingResults(ccpResultsRadon,smoothLength);
 %% 7. Visualization
-% Create visualizations of the CCP stacking results using the visualizeCCPResults
-% function, which provides:
-% 1. 3D volume visualization with topography overlay
-% 2. Interactive profile selection
-% 3. Structure-oriented filtering of cross-sections
-% 4. Comparative display of original and filtered profiles
-% Prepare the normalized image volume
-% Configure visualization options
+% Display 3D imaging results using interactive visualization tools
+% This includes volume slicing and cross-section profiling for both
+% migration and CCP stacking results
+
+% Configure visualization options for predefined profiles
 options = struct();
-options.profileType = 'interactive';  % Enable interactive profile selection
-options.smoothingParams = struct(...
-    'radius', 3, ...        % Smoothing radius
-    'eps', 0.01, ...       % Regularization parameter
-    'order', 2);           % Smoothing order
+options.profileType = 'interactive';  % Use predefined profile paths
+options.dem = load('./visualization/SichuanLongmenshan_DEM.mat');
 
-% profilePoints = [
-%     -20 -10;
-%     107 48;
-%     212 47;
-%     345 -5];
-profileLatLon=[
-91.461	37.470
-91.948	38.168
-93.636	38.707
-94.968	38.739
-95.446  39.256];
-
-[px, py] = latlonToProjectedCoords(profileLatLon(:,1), profileLatLon(:,2), gridStruct);
-
-% px = profilePoints(:,1);
-% py = profilePoints(:,2);
-options.profilePoints(:,1) = px;
-options.profilePoints(:,2) = py;
-% Generate visualizations and get profile data structure
-options.dem = load('Qaidam_DEM.mat');
-visualizeImage(ccpImage, gridStruct, options);
-%% 8. Save results
-% Save the final CCP imaging results to a MAT file for future reference and analysis.
-% The saved results include:
-% - 3D image volume
-% - Grid coordinates
-% - Processing parameters
-% - Other relevant metadata
-% write_MigResult([config.outputFolder,'/ccpResult.mat'], ccpResult);
+% Visualize stacked migration and CCP results
+visualizeImage(migImage, gridStruct, options);
+% visualizeImage(ccpImageRadon, gridStruct, options);

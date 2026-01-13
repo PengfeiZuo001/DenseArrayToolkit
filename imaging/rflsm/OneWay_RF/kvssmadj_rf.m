@@ -103,6 +103,7 @@ for is = 1:nshot
     parfor iw = iw1:iw2
         % source side forward progation
         [swave,~] = sspropog1_rf(dsc(iw,:),vavg_p,du_p,nx,dx,nz,dz,w(iw), 1,bc,'source',  save_wavefield);
+        % receiver side backward propagation
         [rwave,~] = sspropog1_rf(dfx(iw,:),vavg_s,du_s,nx,dx,nz,dz,w(iw),-1,bc,'receiver',save_wavefield);
         
         %apply imaging condition

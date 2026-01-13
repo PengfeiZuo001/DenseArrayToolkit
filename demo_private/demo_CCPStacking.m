@@ -51,10 +51,8 @@ ModelParam.LatMin = min(stla)-0.2;
 ModelParam.LatMax = max(stla)+0.2;
 ModelParam.LonMin = min(stlo)-0.2;
 ModelParam.LonMax = max(stlo)+0.2;
-ModelParam.npts = 5;
-
 ModelType = '3D';
-velocityModel = getVelocityModel(ModelType,ModelParam);
+velocityModel = getVelocityModel(ModelType,ModelParam,5);
 
 %% 5. 计算接收函数
 DataStruct = deconv(DataStruct, DeconvParam);

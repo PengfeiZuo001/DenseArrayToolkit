@@ -49,24 +49,27 @@ function [mod,mod_source,mod_receiver] = ssfm_fd_3D(img,planewave,save_wavefield
    
     % output data in frequence domian
     outf = zeros(nf,nsx,nsy);
-    outf_source = zeros(nz,nf,nsx,nsy);
-    outf_receiver = zeros(nz,nf,nsx,nsy);
+%     outf_source = zeros(nz,nf,nsx,nsy);
+    outf_pwave = zeros(nf,nsx,nsy);
+%     outf_receiver = zeros(nz,nf,nsx,nsy);
     
     parfor iw = iw1:iw2
         source_input = reshape(dsc(iw,:,:),nx,ny);
         % [swave,swave_full] = sspropag_op_3D(source_input,vavg_p,du_p,nx,dx,nz,dz,ny,dy,w(iw),1,bc,'source',save_wavefield);
-        [swave,swave_full] = sspropag_op_3D_fast(source_input,vavg_p,du_p,nx,dx,nz,dz,ny,dy,w(iw),1,bc,'source',save_wavefield);
+        [swave,swave_full] = sspropag_op_3D_fast(source_input,vavg_p,du_p,nx,dx,nz,dz,ny,dy,w(iw),1,bc,'source',1);
         % swave(nz,nx,ny) F-X domain for each frequency
         % swave_full(nz,nsx,nsy) F-K domain for each frequency
         
         receiver_input = (img.*swave);
         % [rwave_s,rwave_full_s] = sspropag_op_3D(receiver_input,vavg_s,du_s,nx,dx,nz,dz,ny,dy,w(iw),1,bc,'receiver',save_wavefield);
-        [rwave_s,rwave_full_s] = sspropag_op_3D_fast(receiver_input,vavg_s,du_s,nx,dx,nz,dz,ny,dy,w(iw),1,bc,'receiver',save_wavefield);
+        [rwave_s,rwave_full_s] = sspropag_op_3D_fast(receiver_input,vavg_s,du_s,nx,dx,nz,dz,ny,dy,w(iw),1,bc,'receiver',0);
         % rwave_s(nsx,nsy) : f-k domain of each iw ,iz = 1;
         % rwave_full_s(nz,nsx,nsy): f-k domain of each iw
         outf(iw,:,:) = rwave_s;
-
         
+        % only save the wavefield at the surface
+        outf_pwave(iw,:,:) = swave_full(1,:,:);
+
         if save_wavefield
             outf_source(:,iw,:,:) = swave_full;
             % outf_receiver(:,iw,:,:) = rwave_full_s;        % whole field           
@@ -85,7 +88,14 @@ function [mod,mod_source,mod_receiver] = ssfm_fd_3D(img,planewave,save_wavefield
     if if_cg == 1
         mod = modtemp(:);
     end
-    
+
+    % surface
+    tmp_source = reshape(outf_pwave,nf,nsx,nsy);
+    % tmp_receiver = reshape(outf_receiver(1,:,:,:),nf,nsx,nsy);
+    s_full = real(ifft(ifft2(tmp_source,nf,nsx),nsy,3));
+    % r_full = real(ifft(ifft2(tmp_receiver,nf,nsx),nsy,3));
+    mod_source = s_full(1:nt,1:nx,1:ny);
+
     if save_wavefield 
         % surface
         tmp_source = reshape(outf_source(1,:,:,:),nf,nsx,nsy);
@@ -95,7 +105,7 @@ function [mod,mod_source,mod_receiver] = ssfm_fd_3D(img,planewave,save_wavefield
         mod_source = s_full(1:nt,1:nx,1:ny);
         % mod_receiver(iz,:,:,:) = r_full(1:nt,1:nx,1:ny);
     else
-        mod_source=[];
+%         mod_source=[];
     end
     mod_receiver=[];
 

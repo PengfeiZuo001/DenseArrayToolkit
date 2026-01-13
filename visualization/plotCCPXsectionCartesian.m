@@ -96,9 +96,9 @@ if ~isempty(dem)
     ry = gridStruct.ry(:,2);
     rz = interp2(demX,demY,demZ,rx,ry);
     scatter3(ax2,rx,ry,rz,100,'^','MarkerFaceColor','r','MarkerEdgeColor','k');
+    set(hdem,'EdgeColor','none','FaceAlpha',0.8)
 end
 colormap(ax2,'parula')
-set(hdem,'EdgeColor','none','FaceAlpha',0.8)
 zlim([ax1.ZLim])
 xlim([ax1.XLim])
 ylim([ax1.YLim])

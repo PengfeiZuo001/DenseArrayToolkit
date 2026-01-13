@@ -22,8 +22,8 @@ clear; clc; close all;
 % Initialize the processing environment by adding necessary functions to MATLAB path
 % and loading configuration parameters for various processing steps. This ensures
 % access to all required processing routines in the DenseArrayToolkit.
+cd ..
 setupPaths();
-
 % Load configuration file containing essential parameters for data processing,
 % including paths, preprocessing settings, and imaging parameters
 config = loadConfig();
@@ -81,11 +81,20 @@ stla = [stationList.stla]';  % Station latitude
 evla = [eventList.evla]';    % Event epicenter latitude
 evlo = [eventList.evlo]';    % Event epicenter longitude
 
+% Filter events based on azimuthal consistency to ensure 2D approximation validity
+% The 2D migration approach requires events to be approximately aligned along
+% a single azimuth. This filtering removes events with scattered back-azimuths
+% that would violate the 2D imaging assumption
+config.max_angle_diff = 25;
+idxConsistentEQ = filter_earthquakes_by_azimuth(stlo, stla, evlo, evla, config.max_angle_diff);
+
 % List of unique event identifiers
 eventid = {eventList.evid};
+eventid = eventid(idxConsistentEQ);
 
 % Generate event-station correspondence table for efficient data access
 EventStationTable = getEventStationTable(DataStruct1);
+
 
 %% 4. Create velocity model
 % Generate a 3D velocity model for migration imaging:
@@ -94,8 +103,8 @@ EventStationTable = getEventStationTable(DataStruct1);
 % 2. Set grid spacing (dx, dy) for horizontal dimensions
 % 3. Define vertical sampling for depth profiles
 % 4. Generate 3D velocity structure for accurate imaging
-dx = 10;  % Horizontal grid spacing (km)
-dy = 10;  % Vertical grid spacing (km)
+dx = 4;  % Horizontal grid spacing (km)
+dy = 4;  % Vertical grid spacing (km)
 dz = 1;
 zmax = 100;
 xpad = 30;
@@ -114,14 +123,9 @@ gridStruct = getVelocityModel('3D',gridStruct,5);
 
 % Initialize arrays for accumulating migration results across all events:
 nMigratedEvents = 1;    % Counter for successfully processed events
+
 ccpResults = [];
-fkParam.lows = 0.1;
-fkParam.highs = 1.2;
-fkParam.minTraces = 30;
-fkParam.w = 0.8;
-fkParam.plotFK = 1;
-fkParam.order = 'postdecon';
-fkParam.plotFKspectrum = 0;
+migResults = []; % Array to store migration results from all events
 
 RankReductionParam = config.RankReductionParam;
 RankReductionParam.rank = 5;
@@ -135,7 +139,7 @@ for iEvent = 1:length(eventid)
     
     % Quality control: Skip events with insufficient station coverage
     % Minimum 60 stations required to ensure reliable imaging results
-    if length(gather) < 30
+    if length(gather) < 50
         continue
     end
   
@@ -149,16 +153,31 @@ for iEvent = 1:length(eventid)
     RadonParam.minTraces = 30;
     RadonParam.plotRadon = 1;
     % Apply Radon filter
-%     gather = radonTransform2D(gather, gridStruct, RadonParam);
-%     gather = fkFilter(gather, gridStruct, fkParam);
-    gather = rankReduction2D(gather, gridStruct, RankReductionParam);
+    RadonParam.highs = 1.2;
+    gather = radonTransform2D(gather, gridStruct, RadonParam);
+%     gather = rankReduction2D(gather, gridStruct, RankReductionParam);
+
 %     plotCommonEventGather(gather);
 %     plotCommonEventGather(gatherRank);
     
     % Perform Common Conversion Point stacking
     % This maps receiver function amplitudes to subsurface points
+    CCPParam.imagingType = '2D';    % Set imaging mode to 2D
+    CCPParam.smoothLength = 0;      % No additional smoothing applied
     ccpResult = CCPCommonEventGather(gather, gridStruct, CCPParam);
     ccpResults = [ccpResults; ccpResult];
+
+    % Perform least-squares migration for improved resolution
+    % This method solves an inverse problem to account for limited aperture
+    % and uneven station coverage, providing sharper images than standard migration
+    MigParam.itermax = 30;          % Maximum iterations for convergence
+    MigParam.gauss = DeconvParam.gauss; % Use same Gaussian parameter as deconvolution
+    MigParam.ssa = 1;
+    MigParam.fhigh = RadonParam.highs;
+    migResult = leastSquaresMig2D(gather, gridStruct, MigParam);
+
+    % Store migration results for current event
+    migResults = [migResults; migResult]; % Accumulate migration results
 
     % Clear figure windows to avoid memory issues during batch processing
     close all;
@@ -166,27 +185,9 @@ for iEvent = 1:length(eventid)
     nMigratedEvents = nMigratedEvents + 1;
 end
 %% 6. Visualization
-% Create visualizations of the 3D CCP stacking results:
-% 1. Extract grid coordinates and compute normalized stacked volume
-% 2. Generate 3D volume plot with orthogonal slices
-% 3. Create cross-sections along predefined profiles
-% 4. Apply custom colormap for optimal visualization
-count = 0;
-V = zeros(size(ccpResults(1).img));
-for n=1:length(ccpResults)
-    V = V+ccpResults(n).img;
-    count = count+ccpResults(n).count;
-end 
-ccpResult.V = V./max(count,1);
-
-% Configure visualization options
-options = struct();
-options.profileType = 'interactive';  % Enable interactive profile selection
-options.smoothingParams = struct(...
-    'radius', 3, ...        % Smoothing radius
-    'eps', 0.01, ...       % Regularization parameter
-    'order', 2);           % Smoothing order
-visualizeImage(ccpResult, gridStruct, options);
+smoothLength = 3; % Smoothing parameter for display (grid points)
+dem = load('Qaidam_DEM.mat');
+plotCCPMigrationResults(ccpResults, migResults, gridStruct, smoothLength, dem);
 
 % Define and plot multiple cross-sections through the volume
 % These profiles are chosen to highlight key structural features
@@ -213,4 +214,4 @@ visualizeImage(ccpResult, gridStruct, options);
 % - Grid coordinates
 % - Processing parameters
 % - Hit count distribution
-write_MigResult([config.outputFolder,'/ccpResult.mat'], ccpResult);
+% write_MigResult([config.outputFolder,'/ccpResult.mat'], ccpResult);

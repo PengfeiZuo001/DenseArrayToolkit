@@ -1,15 +1,15 @@
-function [param] = genVelocityModel(param)
+function [gridStruct] = genVelocityModel(gridStruct)
 
     filename = './velocity_model/Zhao2013_QB_PS2.2.txt';
-    x = param.x;
-    yv = param.y;
-    dz = param.dz;
-    nx = param.nx;
-    ny = param.ny;
-    nz = param.nz;
+    x = gridStruct.x;
+    yv = gridStruct.y;
+    dz = gridStruct.dz;
+    nx = gridStruct.nx;
+    ny = gridStruct.ny;
+    nz = gridStruct.nz;
 
-    slon_ref = param.reflon;
-    slat_ref = param.reflat;
+    slon_ref = gridStruct.originLon;
+    slat_ref = gridStruct.originLat;
 
     %%-------------------
     matrix = readmatrix(filename);
@@ -17,17 +17,18 @@ function [param] = genVelocityModel(param)
     vp = matrix(:,4); vs = matrix(:,5);
 
     % velocity model grid
-    [xv,yv] = latlon2xy(lon,lat,slon_ref,slat_ref);
+%     [xv,yv] = latlon2xy(lon,lat,slon_ref,slat_ref);
+    [xv,yv] = latlonToProjectedCoords(lon, lat, gridStruct);
     % migrition grid
-    [XX, YY, ZZ] = meshgrid(param.x, param.y, param.z);
+    [XX, YY, ZZ] = meshgrid(gridStruct.x, gridStruct.y, gridStruct.z);
     
     % 使用散点插值到规则网格
-    F_vp = scatteredInterpolant(xv, yv, depth, vp, 'linear', 'none');
-    F_vs = scatteredInterpolant(xv, yv, depth, vs, 'linear', 'none');
+    Fvp = scatteredInterpolant(xv, yv, depth, vp, 'linear', 'none');
+    Fvs = scatteredInterpolant(xv, yv, depth, vs, 'linear', 'none');
     
     % 在规则网格点上求值
-    Vp = F_vp(XX, YY, ZZ);
-    Vs = F_vs(XX, YY, ZZ);
+    Vp = Fvp(XX, YY, ZZ);
+    Vs = Fvs(XX, YY, ZZ);
     
     % 转置以匹配期望的维度顺序 [nz,nx,ny]
     Vp = permute(Vp, [3 2 1]);
@@ -64,8 +65,38 @@ function [param] = genVelocityModel(param)
     % Vp = repmat(v1,1,1,ny);
     % Vs = repmat(v2,1,1,ny);
     %%-------------------
-    param.vp = Vp;      % km/s  [nz,nx,ny]
-    param.vs = Vs;      % km/s  [nz,nx,ny]
+    gridStruct.Fvp = Fvp;
+    gridStruct.Fvs = Fvs;
+    gridStruct.VP = Vp;      % km/s  [nz,nx,ny]
+    gridStruct.VS = Vs;      % km/s  [nz,nx,ny]
+    gridStruct.ModelType = '3D';
+    %% plot velocity model at 40 km depth
+    figure;
+    set(gcf,'Position',[0 0 1000 1000],'Color','w')
+    hold on;
+    
+    idx = gridStruct.z == 40;
+    V = squeeze(gridStruct.VS(idx,:,:));
+    hm = pcolor(gridStruct.XInOriginalCoord,gridStruct.YInOriginalCoord,V');
+    set(hm,'EdgeColor','none')
+    cm = colormap('jet');
+    colormap(flipud(cm));
+    % 绘制台站的位置
+    scatter(gridStruct.stationX, gridStruct.stationY, 50,'r^', 'filled', 'DisplayName', 'Stations','MarkerEdgeColor','k');
+   
+    % 绘制网格点的位置
+    scatter(gridStruct.XInOriginalCoord(:), gridStruct.YInOriginalCoord(:), 10, 'k', 'filled', ...
+        'DisplayName', 'Grid Points');
+    
+    % 设置图形
+    xlabel('X (km)');
+    ylabel('Y (km)');
+%         legend('show','Location','best');
+    axis equal;
+    grid on;
+    title('Velocity model');
+    hold off;
+    set(gca,'fontsize',14)
 
     % figure
     % subplot(131)

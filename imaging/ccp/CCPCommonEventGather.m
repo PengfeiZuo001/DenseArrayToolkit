@@ -248,7 +248,7 @@ switch param.imagingType
             end
 
         end
-%         % apply smoothing to the CCP image
+        % apply smoothing to the CCP image
         if param.smoothLength > 0
             V = smooth3(V,'box',param.smoothLength);
             count = smooth3(count,'box',param.smoothLength);

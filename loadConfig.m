@@ -59,6 +59,8 @@ config.MigParam.n_iter      = 20;    % number of iterations for migration
 config.MigParam.gauss       = 2.5;   % Gaussian parameter for migration
 config.MigParam.phaseshift  = 5;     % phase parameter for migration
 config.MigParam.plotMig     = false; % if true, plot migration results
+config.MigParam.t1          = -5;    % start time of the RF used for migration
+config.MigParam.t2          = 20;    % end time of the RF used for migration
 %% CCP imaging parameters
 config.CCPParam.imagingType = '3D';         % use 2D or 3D imaging, 2D imaging project the result onto the principal axis
 config.CCPParam.plotCCP = false;            % if true, plot CCP results
@@ -69,7 +71,7 @@ config.max_angle_diff  = 15; % max azimuth difference (deg)
 config.profile_length  = 4;  % profile length (degree)
 
 %% 6. Global parameters
-config.dataFolder      = './data/event_waveforms_BY'; % data folder path
+config.dataFolder      = './data/event_waveforms_QBI'; % data folder path
 config.outputFolder    = './results';                 % output folder
 config.saveResults     = true;                        % whether to save results
 config.visualizeResults= true;                        % whether to visualize results

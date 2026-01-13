@@ -71,15 +71,15 @@ switch ModelType
         % migrition grid
         [XX, YY, ZZ] = meshgrid(gridStruct.x, gridStruct.y, gridStruct.z);
         
-        % 使用散点插值到规则网格
+        % Interpolate onto a regular grid
         F_vp = scatteredInterpolant(xv, yv, depth, vp, 'linear', 'none');
         F_vs = scatteredInterpolant(xv, yv, depth, vs, 'linear', 'none');
         
-        % 在规则网格点上求值
+        % extract velocities on the regular grid
         Vp = F_vp(XX, YY, ZZ);
         Vs = F_vs(XX, YY, ZZ);
         
-        % 转置以匹配期望的维度顺序 [nz,nx,ny]
+        % permute the tensor to get the correct order [nz,nx,ny]
         Vp = permute(Vp, [3 2 1]);
         Vs = permute(Vs, [3 2 1]);
 
@@ -98,7 +98,15 @@ switch ModelType
         gridStruct.vs = vel_s;
 
         figure;
+        set(gcf,'Position',[100 100 800 500],'Color','w');
         imagesc(gridStruct.x, gridStruct.z, vel);
+        colorbar
+        cm = colormap('jet');
+        colormap(flipud(cm));
+        xlabel('Distance (km)')
+        ylabel('Depth (km)')
+        set(gca,'fontsize',14)
+
     case '3D'
         % Extract geographical boundaries
         LatMin = gridStruct.LatMin;

@@ -1,29 +1,43 @@
-function [m,misfit] = yc_pcg(operator,Param,d,m0,Niter_in,Niter_out,verb)
-% yc_pcg: Precondioned CG for solving sparsity-promoting inverse problems
-% min || d - Fm||_2^2 + \mu || m ||_1
+function [m, misfit] = yc_pcg(operator, Param, d, m0, Niter_in, Niter_out, verb)
+% YC_PCG - Preconditioned Conjugate Gradient solver for sparsity-promoting inverse problems
 %
-% By Yangkang Chen
-% Dec, 2016
+% This function implements a preconditioned conjugate gradient algorithm
+% for solving inverse problems with L1 regularization (sparsity promotion).
+% The optimization problem is:
+%   min || d - F*m ||_2^2 + μ * || m ||_1
 %
-% INPUT
-% operator: forward operator F
-% Param:    parameter struct of the forward operator
-% d:        RHS of the inverse problem
-% m0:       initial model estimation
-% Niter_in: inner iteration NO
-% Niter_out:outer iteration NO
-% verb:     verbosity
-% 
-% OUTPUT
-% m:        estimated model
-% misfit:   misfit history
-% 
-% REFERENCE
-% Chen, 2018, GEO, Automatic velocity analysis using high-resolution hyperbolic Radon transform
-% 
-% DEMO
-% test/test_radon_recon_linear.m
-% test/test_radon_recon_hyper.m
+% The algorithm uses an iterative reweighting approach to approximate the
+% L1 norm with a weighted L2 norm, making it suitable for sparse solutions.
+%
+% INPUTS:
+%   operator - Function handle to forward operator F (e.g., @radon3d_op)
+%   Param    - Parameter structure for the forward operator
+%   d        - Right-hand side data vector/matrix [nt, nhx, nhy] or [nt, nhx]
+%   m0       - Initial model estimation [nt, npx, npy] or [nt, nv]
+%   Niter_in - Maximum number of inner iterations (conjugate gradient steps)
+%   Niter_out- Number of outer iterations (reweighting steps)
+%   verb     - Verbosity flag (1 = display progress, 0 = silent)
+%
+% OUTPUTS:
+%   m        - Estimated model that minimizes the objective function
+%   misfit   - History of misfit values across iterations
+%
+% ALGORITHM FEATURES:
+%   - Preconditioned conjugate gradient method
+%   - Iterative reweighting for L1 regularization
+%   - Sparsity-promoting inversion
+%   - Robust convergence for ill-posed inverse problems
+%
+% REFERENCE:
+%   Chen, Y., 2018, Automatic velocity analysis using high-resolution 
+%   hyperbolic Radon transform, Geophysics
+%
+% DEMO:
+%   test/test_radon_recon_linear.m
+%   test/test_radon_recon_hyper.m
+%
+% Author: Yangkang Chen (original), MATLAB DenseArrayToolkit (enhancements)
+% Date: December 2016 (original), Enhanced for clarity and documentation
 
 u = m0;
 P = ones(size(u));
@@ -76,4 +90,3 @@ temp  =   in.*conj(in);
 out = sum(temp(:));
 
 return;
-

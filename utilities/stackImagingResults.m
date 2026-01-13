@@ -1,4 +1,4 @@
-function [stackedResult] = stackImagingResults(resultsArray)
+function [stackedResult] = stackImagingResults(resultsArray, smoothLength)
 %% stackImagingResults - Stack multiple imaging results into a single volume
 % This function combines multiple migration or CCP imaging results by 
 % averaging or summing them to create a single stacked image volume.
@@ -30,6 +30,9 @@ function [stackedResult] = stackImagingResults(resultsArray)
 if isempty(resultsArray)
     error('resultsArray cannot be empty');
 end
+if nargin < 2
+    smoothLength = 0;
+end
 
 if ~isstruct(resultsArray)
     error('resultsArray must be a structure array');
@@ -38,10 +41,10 @@ end
 %% Determine result type and stack accordingly
 if isfield(resultsArray(1), 'migls')
     % Migration results - average all migls fields
-    stackedResult = stackMigrationResults(resultsArray);
+    stackedResult = stackMigrationResults(resultsArray,smoothLength);
 elseif isfield(resultsArray(1), 'img') && isfield(resultsArray(1), 'count')
     % CCP results - sum images and normalize by count
-    stackedResult = stackCCPResults(resultsArray);
+    stackedResult = stackCCPResults(resultsArray,smoothLength);
 else
     error('Unknown result type. Expected migration (.migls) or CCP (.img, .count) fields');
 end
@@ -49,7 +52,7 @@ end
 end
 
 %% Helper function for stacking migration results
-function [stacked] = stackMigrationResults(resultsArray)
+function [stacked] = stackMigrationResults(resultsArray, smoothLength)
 % Stack migration results by averaging least-squares migration images
     
     % Initialize with first result
@@ -57,8 +60,13 @@ function [stacked] = stackMigrationResults(resultsArray)
     stackedVolume = zeros(size(firstResult.migls));
     
     % Sum all migration images
+    
     for i = 1:length(resultsArray)
-        stackedVolume = stackedVolume + resultsArray(i).migls;
+        if smoothLength > 0
+            stackedVolume = stackedVolume + smooth3(resultsArray(i).migls,'box',smoothLength);
+        else
+            stackedVolume = stackedVolume + resultsArray(i).migls;
+        end
     end
     
     % Average the stacked volume
@@ -81,7 +89,7 @@ function [stacked] = stackMigrationResults(resultsArray)
 end
 
 %% Helper function for stacking CCP results
-function [stacked] = stackCCPResults(resultsArray)
+function [stacked] = stackCCPResults(resultsArray, smoothLength)
 % Stack CCP results by summing images and normalizing by count
     
     % Initialize with first result
@@ -91,10 +99,14 @@ function [stacked] = stackCCPResults(resultsArray)
     
     % Sum all images and counts
     for i = 1:length(resultsArray)
-        stackedVolume = stackedVolume + resultsArray(i).img;
-        totalCount = totalCount + resultsArray(i).count;
+        if smoothLength > 0
+            stackedVolume = stackedVolume + smooth3(resultsArray(i).img,'box',smoothLength);
+            totalCount = totalCount+smooth3(resultsArray(i).count,'box',smoothLength);
+        else
+            stackedVolume = stackedVolume + resultsArray(i).img;
+            totalCount = totalCount + resultsArray(i).count;
+        end
     end
-    
     % Normalize by total count (avoid division by zero)
     if totalCount > 0
         stackedVolume = stackedVolume / totalCount;

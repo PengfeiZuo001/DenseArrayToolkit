@@ -123,7 +123,7 @@ ccpResults = [];
 ccpResultsRadon = [];
 % migResults = [];
 
-for iEvent = 209:length(eventid)
+for iEvent = 1:length(eventid)
     evid = eventid{iEvent};
     % Extract seismic records for current event (Common Event Gather)
     gather = getCommonEventGather(DataStruct, evid);
@@ -144,7 +144,7 @@ for iEvent = 209:length(eventid)
         RadonParam.pmax = 0.02;
         RadonParam.pmin = -0.02;
         % Apply Radon Transform for array processing
-        gatherRadon = radonTransform(gather, gridStruct, RadonParam);
+        gatherRadon = radonTransform2D(gather, gridStruct, RadonParam);
 %         gatherRadon = deconv(gather, DeconvParam);
 %         export_fig(['./figures/radon_post_rfs_',num2str(evid),'.png'],'-r300')
 

@@ -91,6 +91,15 @@ for n = 1:length(DataStruct)
         continue;
     end
 
+    % Check if any component is all zero
+
+    if sum(any(seis)) ~= 3
+        msgSkip = '[Warning] One component is all zero -> skipping.';
+        DataStruct(n).ProcHistory{end+1} = msgSkip;
+        removeIdx(end+1) = n;
+        continue;
+    end
+
     %% 2.2 Retrieve event and station info
     evla = DataStruct(n).EventInfo.evla;
     evlo = DataStruct(n).EventInfo.evlo;
