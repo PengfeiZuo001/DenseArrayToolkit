@@ -54,7 +54,7 @@ CCPParam           = config.CCPParam;
 
 % Override data folder path for this specific demonstration
 % This points to the Qaidam Basin dataset for 2D migration example
-dataFolder = '../DenseArrayToolkit-data/event_waveforms_QBI';
+dataFolder = '../DenseArrayToolkit-data/event_waveforms_MF';
 %% 1. Read data
 % Load seismic waveform data in SAC (Seismic Analysis Code) format from the 
 % specified directory. The read_SAC function reads both waveform data and 
@@ -120,12 +120,12 @@ EventStationTable = getEventStationTable(DataStruct);
 % and establishes the velocity structure used for ray tracing and migration
 %
 % Grid parameters:
-dx = 2;  % Horizontal grid spacing in x-direction (km)
-dy = 2;  % Horizontal grid spacing in y-direction (km) 
-dz = 0.1;  % Vertical grid spacing (km)
-zmax = 15; % Maximum depth for imaging (km)
-xpad = 40;  % Padding distance beyond array extent in x-direction (km)
-ypad = 40;  % Padding distance beyond array extent in y-direction (km)
+dx = 0.5;  % Horizontal grid spacing in x-direction (km)
+dy = 0.5;  % Horizontal grid spacing in y-direction (km) 
+dz = 0.2;  % Vertical grid spacing (km)
+zmax = 30; % Maximum depth for imaging (km)
+xpad = 5;  % Padding distance beyond array extent in x-direction (km)
+ypad = 5;  % Padding distance beyond array extent in y-direction (km)
 %
 % The createGrid function generates a 2D/3D grid structure based on:
 % - Array geometry from station coordinates
@@ -138,24 +138,23 @@ GridStruct = createGrid(DataStruct, dx, dy, dz, zmax, xpad, ypad);
 % computational efficiency while maintaining reasonable accuracy for teleseismic
 % imaging. The velocity model includes P-wave and S-wave velocities as a function
 % of depth, which are essential for calculating travel times and migration operators
-GridStruct = getVelocityModel('2D',GridStruct);
+GridStruct = getVelocityModel('3D',GridStruct,5);
 %% 5. Migration imaging
-% Core processing loop: Perform 2D migration and CCP stacking for each event
+% Core processing loop: Perform CCP stacking for each event
 % This section implements the main imaging algorithms to create subsurface
-% images from receiver function data. Two complementary methods are applied:
+% images from receiver function data.
 %
 % - CCP Stacking: Traditional method that stacks receiver functions along
 %   theoretical conversion points using 1D ray tracing
-% - Least-squares Migration: Advanced inverse method that improves resolution
-%   by accounting for limited aperture and uneven station coverage
-%
+
 % Results from all events are accumulated for final stacking and comparison
-migResults = []; % Array to store migration results from all events
 ccpResults = []; % Array to store CCP stacking results from all events
 
 nMigratedEvents = 0; % Counter for successfully processed events
-minTrace = 60;
 
+minTrace = 60;
+minSNR = 1;    % Minimum SNR of the RF required for CCP imaging
+goodEvent = {};
 % Process each event that passed azimuthal filtering
 % The loop iterates through all events with consistent back-azimuths
 for iEvent = 1:length(eventid)
@@ -166,18 +165,21 @@ for iEvent = 1:length(eventid)
     % stations, enabling event-based processing
     gather = getCommonEventGather(DataStruct, evid);
 
+    % Extract the SNR
+    snrAll = cell2mat(cellfun(@(rf) rf.snr, {gather.RF}, 'UniformOutput', false));    
     % Quality control: Skip events with insufficient station coverage
-    % A minimum of 50 stations is required to ensure reliable imaging results
-    % and adequate spatial sampling for migration
-    if length(gather) < minTrace
-        continue % Skip to next event if insufficient stations
+    % Minimum minTrace stations required to ensure reliable 3D imaging results
+
+    if length(gather) < minTrace || mean(snrAll)< minSNR
+        continue
     end
+    goodEvent = [goodEvent;evid];
 
     % Compute receiver functions through iterative deconvolution
     % Receiver functions isolate the P-to-S converted phases that reveal
     % subsurface discontinuities. Gaussian filtering (gauss=2.5) controls
     % the frequency content and resolution of the resulting images
-    DeconvParam.gauss = 5;    % Gaussian width parameter for frequency filtering
+    DeconvParam.gauss = 10;    % Gaussian width parameter for frequency filtering
     DeconvParam.verbose = false; % Suppress verbose output during processing
     gather = deconv(gather, DeconvParam);
 
@@ -195,60 +197,33 @@ for iEvent = 1:length(eventid)
     % Perform 2D Common Conversion Point (CCP) stacking
     % CCP stacking bins receiver functions based on their theoretical conversion
     % points in the subsurface and stacks them to create a migrated image
-    CCPParam.imagingType = '2D';    % Set imaging mode to 2D
+    CCPParam.imagingType = '3D';    % Set imaging mode to 2D
     CCPParam.smoothLength = 0;      % No additional smoothing applied
     ccpResult = CCPCommonEventGather(gatherRadon, GridStruct, CCPParam);
     ccpResults = [ccpResults; ccpResult]; % Accumulate CCP results
-
-    % Perform least-squares migration for improved resolution
-    % This method solves an inverse problem to account for limited aperture
-    % and uneven station coverage, providing sharper images than standard migration
-    MigParam.itermax = 20;          % Maximum iterations for convergence
-    MigParam.mu = 0.001;
-    MigParam.ssa = 0;
-    MigParam.fhigh = RadonParam.highs;
-    MigParam.gauss = DeconvParam.gauss; % Use same Gaussian parameter as deconvolution
-    MigParam.plotMig = 0;           % plot migration imaging results
-    MigParam.t1 = -3;
-    MigParam.t2 = 5;
-    migResult = leastSquaresMig2D(gatherRadon, GridStruct, MigParam);
-
-    % Store migration results for current event
-    migResults = [migResults; migResult]; % Accumulate migration results
 
     % Update event counter for progress tracking
     nMigratedEvents = nMigratedEvents + 1;
 end
 
 %% 6. Visualization
-% Create comprehensive comparative display of different imaging methods
-% This visualization allows direct assessment of the relative performance
-% and characteristics of CCP stacking versus least-squares migration
-%
-% The plotCCPMigrationResults function generates side-by-side comparisons of:
-% - CCP stacking results: Traditional binning and stacking method
-% - Least-squares migration: Advanced inverse imaging with improved resolution
-%
-% Key visualization features:
-% - Common color scale for direct amplitude comparison
-% - Grid coordinates for spatial reference
-% - Smoothing applied to enhance interpretability while preserving features
-smoothLength = 2; % Smoothing parameter for display (grid points)
-dem = load('Qaidam_DEM.mat');
-plotCCPMigrationResults(ccpResults, migResults, GridStruct, smoothLength, dem);
+% Create final 3D CCP image by stacking all events and normalizing by hit count
+% This produces the final volumetric image showing subsurface structure
+ccpImage = stackImagingResults(ccpResults,3);
 
-%% 7. Save results
-% Store final migration and CCP results to files for future analysis and sharing
-% This preserves the processed data, enabling:
-% - Reproducible research and validation
-% - Further analysis without reprocessing
-% - Comparison with other datasets or methods
-%
-% Saved data includes:
-% - Migration results: Complete least-squares migration outputs for all events
-% - CCP stacking results: Traditional CCP images for all events
-% - Grid coordinates: Spatial reference system for interpretation
-% - Processing parameters: Configuration used for reproducibility
-% - Quality metrics: Processing statistics and event counts
-write_MigResult([config.outputFolder, '/migResults.mat'], migResults);
-write_MigResult([config.outputFolder, '/ccpResults.mat'], ccpResults);
+% Configure visualization options
+options = struct();
+options.profileType = 'interactive';  % Enable interactive profile selection
+options.smoothingParams = struct(...
+    'radius', 3, ...        % Smoothing radius
+    'eps', 0.01, ...       % Regularization parameter
+    'order', 2);           % Smoothing order
+
+% options.profilePoints(:,1) = [76.6927 76.6927 nan 0 200];
+% options.profilePoints(:,2) = [0 150 nan 66.9016 66.9016];
+options.dem = load('./visualization/Qaidam_DEM.mat');
+
+% E-W profile crossing Baiyan Obo minning area
+% options.profilePoints(:,1) = [0; 200];
+% options.profilePoints(:,2) = [66.9016; 66.9016];
+visualizeImage(ccpImage, GridStruct, options);

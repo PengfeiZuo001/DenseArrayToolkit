@@ -51,7 +51,7 @@ CCPParam           = config.CCPParam;
 dataFolder1= './data/event_waveforms_BY';
 DataStruct1 = read_SAC(dataFolder1);
 
-dataFolder2= '../DenseArrayToolkit-data/event_waveforms_BY_local';
+dataFolder2= '/Users/yunfeng/30_40/research/BY_local/event_waveforms';
 DataStruct2 = read_SAC(dataFolder2);
 
 DataStruct = [DataStruct1 DataStruct2];
@@ -94,8 +94,8 @@ EventStationTable = getEventStationTable(DataStruct);
 % 2. Create 3D imaging volume based on array geometry
 % 3. Generate 3D velocity model for accurate depth conversion
 % Note: Using 3D velocity model for precise ray tracing and depth conversion
-dx = 5;    % Horizontal x-direction grid spacing (km)
-dy = 5;    % Horizontal y-direction grid spacing (km)
+dx = 10;    % Horizontal x-direction grid spacing (km)
+dy = 10;    % Horizontal y-direction grid spacing (km)
 dz = 0.5;   % Vertical grid spacing (km) - finer resolution for CCP
 zmax = 100; % Maximum imaging depth (km)
 xpad = 40;
@@ -126,7 +126,7 @@ ccpResults = [];    % 3D CCP image results
 nMigratedEvents = 0;    % Counter for successfully processed events
 
 minTrace = 100; % Minimum number of traces required for CCP imaging
-minSNR = 1;    % Minimum SNR of the RF required for CCP imaging
+minSNR = 5;    % Minimum SNR of the RF required for CCP imaging
 
 % Process each event in the dataset
 for iEvent = 1:length(eventid)
@@ -147,17 +147,104 @@ for iEvent = 1:length(eventid)
     % Apply deconvolution to extract receiver functions
     % This isolates P-to-S converted phases from the P-wave coda
     gather = deconv(gather, DeconvParam);
+%     RadonParam.N1 = 5;
+%     gatherRadon = radonTransform3D(gather, gridStruct, RadonParam);
+    % Set up Radon transform parameters
+    itrCell = {gather.RF};
+    d1 = cell2mat(cellfun(@(rf) rf.itr, itrCell,'UniformOutput', false));
+    % px/py - Slowness parameters (1/velocity) in x/y directions
+    px = linspace(-0.01,0.01,20); % 20 slowness values from -0.01 to 0.01 s/m
+    py = linspace(-0.01,0.01,20); % Same range for y direction
+    dt = 0.1; % Time sampling interval (s)
+    t = (0:size(d1,1)-1)*dt; % Time vector
+    
+    stationList = getStations(gather);
+    stlo = [stationList.stlo]';  % station longitude
+    stla = [stationList.stla]';  % station latitude
+    
+    % Convert to projected coordinates (2D)
+    [hx, hy] = latlonToProjectedCoords(stlo, stla, gridStruct);    
+    % Create parameter structure for Radon transform
+    Param.hx  = hx;       % Receiver x-coordinates (required by radon_op)
+    Param.hy  = hy;       % Receiver y-coordinates
+    Param.px  = px;       % Slowness parameters in x-direction
+    Param.py  = py;       % Slowness parameters in y-direction
+    Param.nt = length(t); % Number of time samples
+    Param.dt = dt;        % Time sampling interval
+    Param.type = 1;       % Transform type (1 = linear Radon transform)
+    Param.isGrid = 0;
+
+    % Get number of slowness parameters
+    npx = length(px);
+    npy = length(py);
+    
+    % Preallocate transform model matrix
+    ma = zeros(Param.nt, npx, npy); % Initial model (all zeros)
+    
+    % Set PCG (Preconditioned Conjugate Gradient) parameters
+    N1 = 10; % Maximum number of iterations
+    N2 = 1;  % Number of restart iterations
+    
+    % Apply 3D Radon Transform using PCG algorithm
+
+    % Perform inverse Radon transform using PCG
+    % yc_pcg - Preconditioned Conjugate Gradient solver
+    % @radon3d_op - Handle to Radon transform operator
+    % d1_otg - Input data (time gather after rank reduction)
+    % ma - Initial model (zeros)
+    % N1, N2 - PCG parameters
+    % 1 - Flag indicating forward/inverse transform
+    mi = yc_pcg(@radon3d_op, Param, d1, ma, N1, N2, 1);
+    
+    % Perform forward Radon transform to reconstruct data from model
+%     d1_radon = radon3d_op(mi_z, Param, 1);
+    Param.hx = gridStruct.x;      % x-offset coordinates of receivers
+    Param.hy = gridStruct.y;      % y-offset coordinates of receivers
+    Param.isGrid = 1;
+    d1_reg = radon3d_op(mi, Param, 1);  % forward modeling from the found model
+    % Visualize original and Radon-transformed data side by side
+    figure;
+    % Reshape and concatenate original and transformed data for display
+    imagesc([d1 d1_radon]);
+    caxis([-0.1 0.1]); % Set color axis limits
+    colormap(seismic(1))
+    colorbar;
+    title('Original (left) vs Radon-transformed (right) data');
+    xlabel('Trace number');
+    ylabel('Time sample');
+    % Apply rank reduction preprocessing to improve signal quality
+    % This helps suppress noise and enhance coherent signals
+%     RankReductionParam = config.RankReductionParam;
+%     RankReductionParam.rank = 3;  % Set rank reduction parameter
+%     [gatherReconstructed, d1_otg,~] = rankReduction3D(gather, gridStruct, RankReductionParam);
+%     RankReductionParam.rank = 10;  % Set rank reduction parameter
+%     [gatherReconstructed1, d1_otg,~] = rankReduction3D(gather, gridStruct, RankReductionParam);
+
+%     figure;
+%     set(gcf,'Position',[0 0 1500 400],'Color','w')
+%     ax1 = subplot(131);
+%     plotCommonEventGather(gather,evid,'trace','imagesc',ax1)
+%     ax1.Title.String='Raw RFs';
+%     ax2 = subplot(132);
+%     plotCommonEventGather(gatherReconstructed1,evid,'trace','imagesc',ax2)
+%     ax2.Title.String='Rank = 10';
+%     ax3 = subplot(133);
+%     plotCommonEventGather(gatherReconstructed,evid,'trace','imagesc',ax3)
+%     ax3.Title.String='Rank = 3'; 
+
+%     plotZRandRF(gather)
+%     [gatherReconstructed, d1_otg] = radonTransform3D(gather, gridStruct, RankReductionParam);
+
 
     % Perform 3D CCP stacking using Common Conversion Point method
     % This maps receiver functions to their theoretical conversion points
-    CCPParam.smoothLength=0;
-    ccpResult = CCPCommonEventGather(gather, gridStruct, CCPParam);
+    ccpResult = CCPCommonEventGather(gatherReconstructed, gridStruct, CCPParam);
     
     % Store CCP results for current event
     ccpResults = [ccpResults; ccpResult];
     
     % Close all figure windows to avoid memory issues during batch processing
-%     close all;
+    close all;
     
     nMigratedEvents = nMigratedEvents + 1;
 end
@@ -165,7 +252,7 @@ end
 %% 7. Results output
 % Create final 3D CCP image by stacking all events and normalizing by hit count
 % This produces the final volumetric image showing subsurface structure
-ccpImage = stackImagingResults(ccpResults,3);
+ccpImage = stackImagingResults(ccpResults,7);
 
 % Configure visualization options
 options = struct();

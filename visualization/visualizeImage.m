@@ -73,7 +73,7 @@ ax1 = subplot(1,1,1);
 hold on;
 
 % Plot volume slices
-h = slice(X, Y, Z, V, [], [], 100);
+h = slice(X, Y, Z, V, [], [], 10);
 colormap(ax1, flipud(cmap.roma));
 cmax = 2*rms(V(:));
 caxis([-cmax, cmax]);

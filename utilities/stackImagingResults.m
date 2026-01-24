@@ -108,11 +108,9 @@ function [stacked] = stackCCPResults(resultsArray, smoothLength)
         end
     end
     % Normalize by total count (avoid division by zero)
-    if totalCount > 0
-        stackedVolume = stackedVolume / totalCount;
-    else
-        warning('Total count is zero, normalization skipped');
-    end
+    totalCount(totalCount == 0) = 1;
+    stackedVolume = stackedVolume ./ totalCount;
+
     
     % Create output structure
     stacked = struct();

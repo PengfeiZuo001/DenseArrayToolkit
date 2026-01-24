@@ -105,7 +105,7 @@ switch ModelType
         colormap(flipud(cm));
         xlabel('Distance (km)')
         ylabel('Depth (km)')
-        set(gca,'fontsize',14)
+        set(gca,'fontsize',18)
 
     case '3D'
         % Extract geographical boundaries
@@ -228,7 +228,7 @@ switch ModelType
         set(gcf,'Position',[0 0 1000 1000],'Color','w')
         hold on;
         
-        idx = gridStruct.z == 40;
+        idx = gridStruct.z == 10;
         V = squeeze(gridStruct.VS(idx,:,:));
         hm = pcolor(gridStruct.XInOriginalCoord,gridStruct.YInOriginalCoord,V');
         set(hm,'EdgeColor','none')
