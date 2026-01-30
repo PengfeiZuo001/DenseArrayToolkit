@@ -4,6 +4,10 @@ function [distAll,depthAll,VAll] = plotCCPXsectionCartesian(X,Y,Z,V,gridStruct,p
 
 F = scatteredInterpolant(X(:),Y(:),Z(:),V(:));
 depth0 = 0:0.5:max(Z(:));
+xmin = min(X(:));
+xmax = max(X(:));
+ymin = min(Y(:));
+ymax = max(Y(:));
 % load colormap
 cmap = load('./visualization/colormap/roma.mat');
 % load DEM
@@ -83,6 +87,20 @@ for n = 1:length(profile)
 end
 zlim([-50 100])
 distElev = distAll(1,:)';
+% plot fault location
+fault_files = dir('./visualization/faults/*txt');
+for k = 1:length(fault_files)
+    faults = read_faults_gmt(fullfile(fault_files(k).folder, fault_files(k).name));
+    for l = 1:length(faults)
+        fault = faults{l};
+        % fault(:,1) -> lon, fault(:,2) -> lat
+        [fx, fy] = latlonToProjectedCoords(fault(:,1), fault(:,2), gridStruct);
+%         plot3(ax1,fx,fy, ones(size(fault(:,1)))*45,'k','linewidth',3);
+        plot3(ax1,fx,fy, ones(size(fault(:,1)))*100,'k','linewidth',3);
+    end
+end
+xlim([xmin xmax])
+ylim([ymin ymax])
 
 ax2 = axes('Position', ax1.Position, ...
            'Color', 'none', ...       % 背景透明
@@ -98,6 +116,19 @@ if ~isempty(dem)
     scatter3(ax2,rx,ry,rz,100,'^','MarkerFaceColor','r','MarkerEdgeColor','k');
     set(hdem,'EdgeColor','none','FaceAlpha',0.8)
 end
+
+% plot fault location
+fault_files = dir('./visualization/faults/*txt');
+for k = 1:length(fault_files)
+    faults = read_faults_gmt(fullfile(fault_files(k).folder, fault_files(k).name));
+    for l = 1:length(faults)
+        fault = faults{l};
+        % fault(:,1) -> lon, fault(:,2) -> lat
+        [fx, fy] = latlonToProjectedCoords(fault(:,1), fault(:,2), gridStruct);
+        plot3(ax2,fx,fy, ones(size(fault(:,1)))*mean(rz(:)),'k','linewidth',3); hold on;
+    end
+end
+
 colormap(ax2,'parula')
 zlim([ax1.ZLim])
 xlim([ax1.XLim])

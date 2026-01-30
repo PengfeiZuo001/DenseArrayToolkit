@@ -15,6 +15,7 @@ end
 
 x = gridStruct.x;
 z = gridStruct.z;
+zmax = max(z);
 stackedImage = zeros(size(ccpResults(1).img));
 totalCount = 0;
 
@@ -77,7 +78,7 @@ if ~isempty(dem)
 end
 subplot(10,1,2:4)
 imagesc(x,z,d2dccp); hold on;
-axis([xmin xmax 0 15])
+axis([xmin xmax 0 zmax])
 % xlabel('Distance (km)');
 ylabel('Depth (km)');
 title('CCP image')
@@ -91,7 +92,7 @@ text(-0.12,0.98,'a)','Units','normalized','FontSize',18)
 
 subplot(10,1,5:7)
 imagesc(x,z,d2dmig); hold on;
-axis([xmin xmax 0 15])
+axis([xmin xmax 0 zmax])
 % xlabel('Distance (km)');
 ylabel('Depth (km)');
 title('Migration image')
@@ -105,7 +106,7 @@ text(-0.12,0.98,'b)','Units','normalized','FontSize',18)
 
 subplot(10,1,8:10)
 imagesc(x,z, d2dlsm); hold on;
-axis([xmin xmax 0 15])
+axis([xmin xmax 0 zmax])
 xlabel('Distance (km)');
 ylabel('Depth (km)');
 title('LSM image')

@@ -120,10 +120,10 @@ EventStationTable = getEventStationTable(DataStruct);
 % and establishes the velocity structure used for ray tracing and migration
 %
 % Grid parameters:
-dx = 4;  % Horizontal grid spacing in x-direction (km)
-dy = 4;  % Horizontal grid spacing in y-direction (km) 
-dz = 1;  % Vertical grid spacing (km)
-zmax = 100; % Maximum depth for imaging (km)
+dx = 2;  % Horizontal grid spacing in x-direction (km)
+dy = 2;  % Horizontal grid spacing in y-direction (km) 
+dz = 0.1;  % Vertical grid spacing (km)
+zmax = 15; % Maximum depth for imaging (km)
 xpad = 40;  % Padding distance beyond array extent in x-direction (km)
 ypad = 40;  % Padding distance beyond array extent in y-direction (km)
 %
@@ -177,19 +177,20 @@ for iEvent = 1:length(eventid)
     % Receiver functions isolate the P-to-S converted phases that reveal
     % subsurface discontinuities. Gaussian filtering (gauss=2.5) controls
     % the frequency content and resolution of the resulting images
-    DeconvParam.gauss = 2.5;    % Gaussian width parameter for frequency filtering
+    DeconvParam.gauss = 5;    % Gaussian width parameter for frequency filtering
     DeconvParam.verbose = false; % Suppress verbose output during processing
     gather = deconv(gather, DeconvParam);
 
     % Apply Radon Transform for enhanced signal-to-noise ratio
     % The Radon transform helps suppress coherent noise and improve
     % signal coherency across the array by focusing energy along moveout curves
-    RadonParam.highs = 1.2;  % High-slowness cutoff (s/km)
+    RadonParam.highs = DeconvParam.gauss/2;  % High-slowness cutoff (s/km)
     RadonParam.pmax = 0.06;   % Maximum slowness (s/km)
     RadonParam.pmin = -0.06;  % Minimum slowness (s/km)
     RadonParam.N1 = 10;
     RadonParam.plotRadon = 0; 
-    gatherRadon = radonTransform2D(gather, GridStruct, RadonParam);
+%     gatherRadon = radonTransform2D(gather, GridStruct, RadonParam);
+    gatherRadon = gather;
     
     % Perform 2D Common Conversion Point (CCP) stacking
     % CCP stacking bins receiver functions based on their theoretical conversion
@@ -203,11 +204,13 @@ for iEvent = 1:length(eventid)
     % This method solves an inverse problem to account for limited aperture
     % and uneven station coverage, providing sharper images than standard migration
     MigParam.itermax = 20;          % Maximum iterations for convergence
-    MigParam.mu = 0.01;
+    MigParam.mu = 0.001;
     MigParam.ssa = 0;
-    MigParam.fhigh = 1.2;
+    MigParam.fhigh = RadonParam.highs;
     MigParam.gauss = DeconvParam.gauss; % Use same Gaussian parameter as deconvolution
     MigParam.plotMig = 0;           % plot migration imaging results
+    MigParam.t1 = -3;
+    MigParam.t2 = 5;
     migResult = leastSquaresMig2D(gatherRadon, GridStruct, MigParam);
 
     % Store migration results for current event

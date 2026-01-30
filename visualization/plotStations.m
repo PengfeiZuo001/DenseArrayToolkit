@@ -85,11 +85,11 @@ geoshow(lats, lons, ...
     'MarkerSize',15);
 
 % 如果想在点旁边标注台站名，可以用 textm:
-for i = 1:length(lats)
-    textm(lats(i), lons(i), staname{i}, ...
-        'VerticalAlignment','bottom','HorizontalAlignment','right', ...
-        'FontSize',12,'Color','k','FontWeight','normal');
-end
+% for i = 1:length(lats)
+%     textm(lats(i), lons(i), staname{i}, ...
+%         'VerticalAlignment','bottom','HorizontalAlignment','right', ...
+%         'FontSize',12,'Color','k','FontWeight','normal');
+% end
 
 %% 7. 其他修饰
 title('Station Map with DEM', 'FontSize',12,'FontWeight','bold');

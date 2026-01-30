@@ -10,7 +10,7 @@ config.PreprocessingParam.tstart          = -60;   % start time (sec) relative t
 config.PreprocessingParam.tend            = 600;   % end time (sec) relative to event
 config.PreprocessingParam.sig_leader      = 30;    % time before P-wave arrival (sec)
 config.PreprocessingParam.record_len      = 120;   % record length after P-wave arrival (sec)
-config.PreprocessingParam.lows            = 0.1;   % bandpass filter low corner frequency (Hz)
+config.PreprocessingParam.lows            = 0.2;   % bandpass filter low corner frequency (Hz)
 config.PreprocessingParam.highs           = 2.0;   % bandpass filter high corner frequency (Hz)
 config.PreprocessingParam.resample_period = 0.1;   % resample period (sec)
 

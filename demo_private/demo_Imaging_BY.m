@@ -150,8 +150,8 @@ for iEvent = 1:length(eventid)
 
     % Perform 3D CCP stacking using Common Conversion Point method
     % This maps receiver functions to their theoretical conversion points
-    CCPParam.smoothLength=0;
-    ccpResult = CCPCommonEventGather(gather, gridStruct, CCPParam);
+    CCPParam.gauss=DeconvParam.gauss;
+    ccpResult = FresnelCCPCommonEventGather(gather, gridStruct, CCPParam);
     
     % Store CCP results for current event
     ccpResults = [ccpResults; ccpResult];
@@ -165,7 +165,7 @@ end
 %% 7. Results output
 % Create final 3D CCP image by stacking all events and normalizing by hit count
 % This produces the final volumetric image showing subsurface structure
-ccpImage = stackImagingResults(ccpResults,3);
+ccpImage = stackImagingResults(ccpResults);
 
 % Configure visualization options
 options = struct();
