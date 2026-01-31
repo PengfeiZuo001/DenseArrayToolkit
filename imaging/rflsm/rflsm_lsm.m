@@ -32,6 +32,7 @@ flow = param.flow;
 fhigh = param.fhigh;
 itermax=param.itermax;
 mu=param.mu;
+tol = param.tol;
 save_wavefield=0;
 
 % sampling operator
@@ -60,7 +61,7 @@ PtLt= @(d) Pt(Lt(d));
 A = @(u) PtLt(LP(u))+mu*u;
 b = PtLt(d(:));
 tic;
-[utmp,flag,relres,iter,resvec] = pcg(A,b,[],itermax);
+[utmp,flag,relres,iter,resvec] = pcg(A,b,tol,itermax);
 toc;
 utmp=reshape(utmp,nz,nx);
 mtmp=P(utmp);

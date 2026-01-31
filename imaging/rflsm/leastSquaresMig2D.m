@@ -63,6 +63,8 @@ if ~isfield(param,'itermax'), param.itermax = 20; end
 if ~isfield(param,'mu'),      param.mu = 0.1;     end
 if ~isfield(param,'xpad'),    param.xpad = 0;     end
 if ~isfield(param,'plotMig'), param.plotMig = false;    end
+if ~isfield(param,'t1'),      param.t1 = -5; end
+if ~isfield(param,'t2'),      param.t1 = 20; end
 % Display some gather info if present
 if isfield(gather(1), 'EventInfo') && isfield(gather(1).EventInfo, 'evid')
     disp(['[leastSquaresMig] Processing event: ' gather(1).EventInfo.evid]);
@@ -110,11 +112,17 @@ x    = gridStruct.x;
 z    = gridStruct.z;
 dx   = gridStruct.dx;
 dz   = gridStruct.dz;
+% extract 2D velocity model from 3D
+if isfield(gridStruct,'vp')
+    gridStruct.vp = mean(gridStruct.vp,3);
+end
+if isfield(gridStruct,'vs')
+    gridStruct.vs = mean(gridStruct.vs,3);
+end
 vp   = gridStruct.vp;
 vs   = gridStruct.vs;
 nx   = gridStruct.nx;
 nz   = gridStruct.nz;
-xpad = abs(x(1));  % Horizontal padding if relevant
 
 % If you want to restrict the imaging domain according to zmax:
 zmaxSamples = floor(param.zmax / dz);
@@ -162,6 +170,14 @@ nt       = length(timeAxis);
 % -------------------------------------------------------------------------
 % Binning step: group traces into horizontal bins of width param.binning.dx
 dBinned = doBinning(itrMat, rx, x, param.binning.dx);  
+
+% taper RF to remove later conversions
+TIME = gather(1).RF.ittime;
+
+[win] = waveform_win(dBinned(:,1),TIME,param.t1,param.t2,0.5);
+win = win*ones(1,size(dBinned,2));
+dBinned = dBinned.*win;
+
 % dBinned => [Nt x nx], each column is the average of all traces that fall
 %            into that bin's x-range
 
@@ -180,6 +196,8 @@ end
 if param.ssa
     % For example, skip a padding region if xpad>0
     % i1, i2 define subrange in x?
+    xpad = abs(x(1));  % Horizontal padding if relevant
+    param.xmax = max(x);
     i1 = floor(xpad/dx) + 1;
     i2 = nx - floor(xpad/dx);
     i2 = min(i2, size(dBinned,2));  % just to be safe

@@ -1,17 +1,18 @@
 function [mod,mod_source,mod_receiver] = ssfm_fd_3D(img,planewave,save_wavefield,param,if_cg)
 
     % parameters
-    
     vp = param.vp;
     vs = param.vs;
-    nt = param.nt;
-    dt = param.dt;
     dx = param.dx;
     dy = param.dy;
     dz = param.dz;
+
     flow = param.flow;
     fhigh = param.fhigh;
     bc = param.bc;
+
+    nt = param.nt;
+    dt = param.dt;
     
     %-------------------------------------------------------------------------
     %-------------------------------------------------------------------------

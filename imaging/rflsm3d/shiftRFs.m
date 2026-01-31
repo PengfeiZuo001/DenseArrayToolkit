@@ -1,30 +1,45 @@
-function [rfshift,src_func,mask] = shiftRFs(rf0,take_off,back_az,xo,yo,x,y,rx,ry,param)
+function [rfshift,src_func,mask] = shiftRFs(rf0,take_off,back_az,rx,ry,gridStruct,param)
 
-    param = param.paramMig;
-
-    TIME = param.Ti;
-    dt = param.dt;
+    isplot=1;
     nt = param.nt;
-    nx = param.nx;
-    ny = param.ny;
-    nz = param.nz;
-    vp = param.vp;
+    dt = param.dt;
     src_type = param.src_type;
     fpeak = param.fpeak;
 
-    dx = param.dx;
-    dy = param.dy;
+    dx = gridStruct.dx;
+    dy = gridStruct.dy;
+    dz = gridStruct.dz;
+    nx = gridStruct.nx;
+    ny = gridStruct.ny;
+    nz = gridStruct.nz;
+    vp = gridStruct.vp;
+    vs = gridStruct.vs;
     
-    isplot = param.plot;
-    
+    x = gridStruct.x;
+    y = gridStruct.y;
+    xo = gridStruct.XInOriginalCoord(:);
+    yo = gridStruct.YInOriginalCoord(:);
+
+    %% for migration param
+    paramMig.vp = vp;
+    paramMig.vs = vs;
+    paramMig.dx = dx;
+    paramMig.dy = dy;
+    paramMig.dz = dz;
+    paramMig.flow = param.flow;
+    paramMig.fhigh = param.fhigh;
+    paramMig.bc = param.bc;
+    paramMig.nt = param.nt;
+    paramMig.dt = param.dt;
+
     %% prepeocess and extract wavelet
     [rf1,src_func] = preprocrf(rf0,param);
     rfshift0 = zeros(nt,nx,ny);     % only for plotting
     [rftmp0,mask] = doBinning(rf0, rx, ry, x, y,nx,ny, dx, dy);
     
     %% 
-    if param.isReconRFs
-        rftmp = param.dout_regular;
+    if param.ssa
+        rftmp = param.reconed_rf;
     else
         rfshift = zeros(nt,nx,ny);
         [rftmp,~] = doBinning(rf1, rx, ry, x, y, nx,ny, dx, dy);
@@ -36,7 +51,7 @@ function [rfshift,src_func,mask] = shiftRFs(rf0,take_off,back_az,xo,yo,x,y,rx,ry
     %%  forward
     save_wavefield = 1;
     img = zeros(nz,nx,ny);
-    [~,mod_source,~] = ssfm_fd_3D(img,dsrc,save_wavefield,param);
+    [~,mod_source,~] = ssfm_fd_3D(img,dsrc,save_wavefield,paramMig);
     
     %% apply time diff to rf using cross correlation
     % cross correlate P wave with RF

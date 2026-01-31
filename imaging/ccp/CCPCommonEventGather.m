@@ -49,12 +49,12 @@ end
 % gridStruct contains either 1D or 3D velocity information and
 % defines the imaging grid parameters
 if strcmp(gridStruct.ModelType ,'1D')
-    vp   = gridStruct.vp(:, 1);  % Assuming vp is 1D
+    vp   = gridStruct.vp(:, :,1);  % Assuming vp is 1D
     vs   = gridStruct.vs(:, 1);  % Assuming vs is 1D
     z = gridStruct.z;
 elseif strcmp(gridStruct.ModelType ,'2D')
-    vp   = mean(gridStruct.vp,2);  % Average of 2D model
-    vs   = mean(gridStruct.vs,2);  % Average of 2D model
+    vp   = mean(mean(gridStruct.vp,3),2);  % Average of 2D model
+    vs   = mean(mean(gridStruct.vs,3),2);  % Average of 2D model
     z = gridStruct.z;
 elseif strcmp(gridStruct.ModelType ,'3D')
     vp   = mean(mean(gridStruct.vp,3),2);  % Average of 3D model
@@ -253,7 +253,9 @@ switch param.imagingType
             V = smooth3(V,'box',param.smoothLength);
             count = smooth3(count,'box',param.smoothLength);
         end
-
+        V = permute(V,[3,2,1]);  % [nz,nx,ny]
+        count  = permute(count,[3,2,1]);
+        
         ccpResult = struct('X', X, 'Y', Y, 'Z', Z, 'img', V, 'count', count);
 end
 

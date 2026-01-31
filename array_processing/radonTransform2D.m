@@ -120,8 +120,8 @@ for iEvt = 1:length(eventIDs)
     % use the projected station locaiton on principle axis to define the
     % distance vector
     stationList = getStations(DataStruct);
-    stlo = [stationList.stlo]';  % 台站经度
-    stla = [stationList.stla]';  % 台站纬度
+    stlo = [stationList.stlo]'; 
+    stla = [stationList.stla]'; 
     [h, ~] = latlonToProjectedCoords(stlo,stla, gridStruct);
     [h,idx] = sort(h);
     commonEventGather = commonEventGather(idx);

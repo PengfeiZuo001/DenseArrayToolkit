@@ -54,7 +54,7 @@ DataStruct = deconv(DataStruct, DeconvParam);
 %   After computing and stacking receiver functions, visualize and inspect the results.
 
 % 5.1 Visualize example single seismic trace
-trace_index = 100;  % Specify the index of the trace to plot
+trace_index = 10;  % Specify the index of the trace to plot
 %   plotWaveforms() plots the waveform of a specific seismic record in time or frequency domain
 plotWaveforms(DataStruct, trace_index);
 

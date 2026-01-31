@@ -54,29 +54,32 @@ function [stacked] = stackMigrationResults(resultsArray)
     
     % Initialize with first result
     firstResult = resultsArray(1);
-    stackedVolume = zeros(size(firstResult.migls));
+    stackedmig = zeros(size(firstResult.mig));
+    stackedmigls = zeros(size(firstResult.migls));
     
     % Sum all migration images
     for i = 1:length(resultsArray)
-        stackedVolume = stackedVolume + resultsArray(i).migls;
+        stackedmig = stackedmigls + resultsArray(i).mig;
+        stackedmigls = stackedmigls + resultsArray(i).migls;
     end
     
     % Average the stacked volume
-    stackedVolume = stackedVolume / length(resultsArray);
+    stackedmigls = stackedmigls ./ length(resultsArray);
     
     % Create output structure
     stacked = struct();
-    stacked.V = permute(stackedVolume,[3,2,1]);
+    stacked.mig = stackedmig;
+    stacked.migls = stackedmigls;
     
     % Copy coordinate grids if available
-    if isfield(firstResult, 'X')
-        stacked.X = firstResult.X;
+    if isfield(firstResult, 'x')
+        stacked.x = firstResult.x;
     end
-    if isfield(firstResult, 'Y')
-        stacked.Y = firstResult.Y;
+    if isfield(firstResult, 'y')
+        stacked.y = firstResult.y;
     end
-    if isfield(firstResult, 'Z')
-        stacked.Z = firstResult.Z;
+    if isfield(firstResult, 'z')
+        stacked.z = firstResult.z;
     end
 end
 
@@ -87,24 +90,23 @@ function [stacked] = stackCCPResults(resultsArray)
     % Initialize with first result
     firstResult = resultsArray(1);
     stackedVolume = zeros(size(firstResult.img));
-    totalCount = 0;
+    totalCount = zeros(size(stackedVolume));
     
     % Sum all images and counts
     for i = 1:length(resultsArray)
         stackedVolume = stackedVolume + resultsArray(i).img;
         totalCount = totalCount + resultsArray(i).count;
     end
-    
+
     % Normalize by total count (avoid division by zero)
-    if totalCount > 0
-        stackedVolume = stackedVolume / totalCount;
-    else
-        warning('Total count is zero, normalization skipped');
-    end
-    
+    Vn = zeros(size(stackedVolume));
+    mask = totalCount > 0;
+    Vn(mask) = stackedVolume(mask) ./ totalCount(mask);
+    Vn(~mask) = 0;   % or Nan
+
     % Create output structure
     stacked = struct();
-    stacked.V = stackedVolume;
+    stacked.img = Vn;
     stacked.count = totalCount;
     
     % Copy coordinate grids if available

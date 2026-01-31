@@ -3,13 +3,8 @@ function [itr,src_func] = preprocrf(rf0,param)
 TIME = param.Ti;
 dt = param.dt;
 nt = param.nt;
-t1 = -3;
-t2 = 20;
-% t2 = t1+nt*dt;
-
-% nt1 = abs(t1)/dt;
-% nt2 = t2/dt;
-x = size(rf0,2);
+t1 = param.t1;
+t2 = param.t2;
 
 % normaliztion
 itr = rf0./max(rf0(:));
@@ -23,6 +18,7 @@ nfft = size(itr,1);
 
 gauss = param.gauss;
 ph = param.phaseshift;
+
 gaussF = gaussFilter( dt, nfft, gauss );
 % phase shift in radians
 shift_i = round(ph/dt); % removed +1 from here.
@@ -43,8 +39,6 @@ src_func = src./max(src(:));
 [win] = waveform_win(src_func,TIME,t1,t2,0.5);
 win = win*ones(1,size(itr,2));
 itr = itr.*win;
-
 % src_func = gradient(src_func,-0.5);
-
 
 end

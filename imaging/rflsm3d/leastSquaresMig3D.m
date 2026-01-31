@@ -20,7 +20,7 @@ if ~isfield(param,'binning') || ~isfield(param.binning,'dx')
     % If binning not given, default to gridStruct.dx
     param.binning = gridStruct;
 end
-if ~isfield(param,'itermax'), param.itermax = 5;  end
+if ~isfield(param,'itermax'), param.itermax = 10;  end
 if ~isfield(param,'mu'),      param.mu = 0.1;     end
 if ~isfield(param,'xpad'),    param.xpad = 0;     end
 if ~isfield(param,'plotMig'), param.plotMig = false;    end
@@ -51,21 +51,15 @@ gval    = gather(validMask);
 
 % Time axis from the first valid record
 timeAxis = gval(1).RF.ittime;  % or gather(find(validMask,1)).RF.ittime
-idx = timeAxis<=param.tmax;
-timeAxis = timeAxis(idx);
 
 dt_samp  = gval(1).TimeAxis.dt_resample;
 nt       = length(timeAxis);
-
-param.paramMig.Ti = timeAxis;
-param.paramMig.dt = dt_samp;
-param.paramMig.nt = nt;
-param.paramMig.gauss = param.gauss;
-param.paramMig.phaseshift = param.phaseshift;
+param.Ti = timeAxis;
+param.dt = dt_samp;
+param.nt = nt;
 
 % Combine all itr traces into a matrix [Nt x Ntrace]
 itrMat = cell2mat(cellfun(@(rf) rf.itr, itrAll, 'UniformOutput', false)); 
-itrMat = itrMat(idx,:);
 %% ------------------------------------------------------------------------
 %  (5) Forward wavefield modeling (source, shift, etc.)
 % -------------------------------------------------------------------------
@@ -73,7 +67,7 @@ itrMat = itrMat(idx,:);
 raypAll = [gval.TravelInfo];
 avgRayp  = mean([raypAll.rayParam]); 
 % avgBaz   = mean([raypAll.baz]);
-vp = param.paramMig.vp;
+vp = gridStruct.vp;
 vpBottom   = mean(vp(end,:));  % example: near bottom row or top row, depending
 
 take_off = asind(avgRayp*vpBottom/(6371-max(gridStruct.z))); % incident angle
@@ -85,30 +79,27 @@ disp('---------------------------------------------------------------')
 stla = cell2mat(cellfun(@(sta) sta.stla, {gather.StationInfo}, 'UniformOutput', false));    
 stlo = cell2mat(cellfun(@(sta) sta.stlo, {gather.StationInfo}, 'UniformOutput', false));    
 
-[rx, ry] = latlonToProjectedCoords(stlo, stla, gridStruct);
-x = gridStruct.x;
-y = gridStruct.y;
-xo = gridStruct.XInOriginalCoord(:);
-yo = gridStruct.YInOriginalCoord(:);
-[rfshift,src_func,mask] = shiftRFs(itrMat,take_off,back_azimuth,xo,yo,x,y,rx,ry,param);
+[rx_current, ry_current] = latlonToProjectedCoords(stlo, stla, gridStruct);
+
+[rfshift,src_func,mask] = shiftRFs(itrMat,take_off,back_azimuth,rx_current,ry_current,gridStruct,param);
 
 %% migration
 save_wavefield = 0;
-[mig,pre_rfm] = runMigration(rfshift,take_off,back_azimuth,src_func,save_wavefield,gridStruct,param);
+[mig,pre_rfm] = runMigration3D(rfshift,take_off,back_azimuth,src_func,save_wavefield,gridStruct,param);
 
 %% LSM
-itermax = param.itermax;
 save_wavefield = 0;
-[lsmig,pre_rflsm] = runLSM(rfshift,take_off,back_azimuth,src_func,save_wavefield,itermax,gridStruct,param);
+[lsmig,pre_rflsm] = runLSM3D(rfshift,take_off,back_azimuth,src_func,save_wavefield,gridStruct,param);
 
 %% ------------------------------------------------------------------------
 %  (8) Prepare output structure
 % -------------------------------------------------------------------------
 MigResult.mig   = mig;
 MigResult.migls = lsmig;
-x = param.paramMig.x;
-y = param.paramMig.y;
-z = param.paramMig.z;
+x = gridStruct.x;
+y = gridStruct.y;
+z = gridStruct.z;
+
 [X,Y,Z] = meshgrid(x,y,z);
 MigResult.X = X;
 MigResult.Y = Y;
