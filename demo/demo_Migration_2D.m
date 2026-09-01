@@ -185,8 +185,8 @@ for iEvent = 1:length(eventid)
     % The Radon transform helps suppress coherent noise and improve
     % signal coherency across the array by focusing energy along moveout curves
     RadonParam.highs = 1.2;  % High-slowness cutoff (s/km)
-    RadonParam.pmax = 0.06;   % Maximum slowness (s/km)
-    RadonParam.pmin = -0.06;  % Minimum slowness (s/km)
+    RadonParam.pmax = 0.04;   % Maximum slowness (s/km)
+    RadonParam.pmin = -0.04;  % Minimum slowness (s/km)
     RadonParam.N1 = 10;
     RadonParam.plotRadon = 0; 
     gatherRadon = radonTransform2D(gather, GridStruct, RadonParam);
@@ -196,6 +196,7 @@ for iEvent = 1:length(eventid)
     % points in the subsurface and stacks them to create a migrated image
     CCPParam.imagingType = '2D';    % Set imaging mode to 2D
     CCPParam.smoothLength = 0;      % No additional smoothing applied
+    CCPParam.stackMode = 'uniform'; % stacking model 'uniform' or 'fresnel'
     ccpResult = CCPCommonEventGather(gatherRadon, GridStruct, CCPParam);
     ccpResults = [ccpResults; ccpResult]; % Accumulate CCP results
 

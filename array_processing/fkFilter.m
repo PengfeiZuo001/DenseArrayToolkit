@@ -1,4 +1,4 @@
-function DataStruct = fkFilter(DataStruct, gridStruct, param)
+ function DataStruct = fkFilter(DataStruct, gridStruct, param)
 % FKFILTER  Perform FK filter-based array processing on DataStruct.
 %
 % Usage:
